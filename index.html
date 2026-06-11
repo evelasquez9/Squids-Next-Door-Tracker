@@ -96,6 +96,12 @@
   }
   .btn-ink:hover { opacity: 0.85; }
   .inked-label { color: #34d399; font-size: 13px; font-weight: bold; }
+  .btn-unink {
+    background: transparent; color: #5b89a8;
+    border: none; font-size: 11px; cursor: pointer; padding: 2px 4px;
+    font-family: Georgia, serif; text-decoration: underline;
+  }
+  .btn-unink:hover { color: #7dd3fc; }
   .btn-remove {
     background: transparent; color: #475569;
     border: none; font-size: 11px; cursor: pointer; padding: 2px 4px;
@@ -399,7 +405,7 @@
         </div>
         <div class="card-actions">
           ${m.completedToday
-            ? `<span class="inked-label">Inked ✓</span>`
+            ? `<span class="inked-label">Inked ✓</span><button class="btn-unink" data-id="${m.id}">un-ink</button>`
             : `<button class="btn-ink" data-id="${m.id}">Ink It! 🦑</button>`}
           <button class="btn-remove" data-id="${m.id}">remove</button>
         </div>`;
@@ -408,6 +414,8 @@
 
     container.querySelectorAll(".btn-ink").forEach(b =>
       b.addEventListener("click", () => checkin(b.dataset.id)));
+    container.querySelectorAll(".btn-unink").forEach(b =>
+      b.addEventListener("click", () => uncheckin(b.dataset.id)));
     container.querySelectorAll(".btn-remove").forEach(b =>
       b.addEventListener("click", () => remove(b.dataset.id)));
   }
@@ -424,6 +432,19 @@
       t.streak += 1;
     });
     if (ok) showToast("Inked! 🦑");
+  }
+
+  async function uncheckin(id) {
+    const m = state.members.find(x => x.id === id);
+    if (!m || !m.completedToday) return;
+    if (!(await verifyMember(m, "un-ink it"))) return;
+    const ok = await syncedUpdate(s => {
+      const t = s.members.find(x => x.id === id);
+      if (!t || !t.completedToday) return false;
+      t.completedToday = false;
+      t.streak = Math.max(0, t.streak - 1);
+    });
+    if (ok) showToast("Un-inked 💧");
   }
 
   async function remove(id) {
