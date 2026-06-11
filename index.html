@@ -223,7 +223,7 @@
   <div class="legend" id="legend" style="display:none">
     Streak badges: <span style="color:#34d399">7🦑</span> ·
     <span style="color:#c084fc">14🦑</span> ·
-    <span style="color:#ffd700">30🦑</span> · Resets daily at local midnight
+    <span style="color:#ffd700">30🦑</span> · Resets daily at midnight ET
   </div>
 </main>
 
@@ -248,10 +248,10 @@
     { days: 7,  label: "7🦑 LEGEND",  color: "#34d399" },
   ];
 
-  // Local-time date string (YYYY-MM-DD) — resets happen at YOUR midnight
+  // Date string (YYYY-MM-DD) pinned to Eastern Time — the whole squad's
+  // day flips at the same moment regardless of device timezone or clock
   const today = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
   };
 
   let state = null;
@@ -510,27 +510,20 @@
   }
 
   // ── Live auto-refresh ────────────────────────
-
-  // Poll every 5 minutes instead of every 30 seconds
-  const POLL_MS = 300000;
+  const POLL_MS = 30000; // re-check every 30s; lower = snappier but more API calls
 
   async function poll() {
-    // Don't poll if the tab isn't visible
-    if (document.hidden) return;
-
     // Skip if the user is busy typing, entering a PIN, or a save is in flight
     if (formOpen || busy || !state) return;
-
     try {
       const fresh = normalize(await fetchState());
-
-      // Only re-render if something actually changed
+      // Only re-render if something actually changed (avoids flicker)
       if (JSON.stringify(fresh) !== JSON.stringify(state)) {
         state = fresh;
         render();
       }
     } catch (e) {
-      // Ignore temporary polling failures
+      // Stay quiet on transient poll failures — the next tick will retry
     }
   }
 
@@ -545,19 +538,11 @@
   }
 
   load();
+  setInterval(poll, POLL_MS);
 
-  // Poll every 5 minutes, but only if the tab is visible
-  setInterval(() => {
-    if (!document.hidden) {
-      poll();
-    }
-  }, POLL_MS);
-
-  // Refresh immediately when returning to the tab
+  // Also refresh the moment you return to the tab after it was hidden
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      poll();
-    }
+    if (!document.hidden) poll();
   });
 </script>
 </body>
