@@ -255,6 +255,8 @@
   };
 
   let state = null;
+  let formOpen = false;   // true while the add form is showing
+  let busy = false;       // true during a save or PIN prompt
 
   // ── PIN helpers ──────────────────────────────
   async function sha256(str) {
@@ -272,28 +274,33 @@
   // Returns true if the current device is allowed to act for this member
   async function verifyMember(m, action) {
     if (getUnlocked().includes(m.id)) return true;
-    if (!m.pinHash) {
-      // Legacy member created before PINs existed — first interaction claims it
-      const pin = prompt(`${m.name} has no PIN yet. Set a 4-digit PIN to claim this squid:`);
+    busy = true;
+    try {
+      if (!m.pinHash) {
+        // Legacy member created before PINs existed — first interaction claims it
+        const pin = prompt(`${m.name} has no PIN yet. Set a 4-digit PIN to claim this squid:`);
+        if (pin === null) return false;
+        if (!/^\d{4}$/.test(pin)) { showToast("PIN must be exactly 4 digits"); return false; }
+        const hash = await sha256(pin);
+        const ok = await syncedUpdate(s => {
+          const t = s.members.find(x => x.id === m.id);
+          if (!t) return false;            // removed in the meantime
+          if (t.pinHash) return false;     // claimed by someone else first
+          t.pinHash = hash;
+        });
+        if (!ok) { showToast("Couldn't claim — refresh and try again"); return false; }
+        addUnlocked(m.id);
+        showToast("PIN set — squid claimed! 🦑");
+        return true;
+      }
+      const pin = prompt(`Enter ${m.name}'s 4-digit PIN to ${action}:`);
       if (pin === null) return false;
-      if (!/^\d{4}$/.test(pin)) { showToast("PIN must be exactly 4 digits"); return false; }
-      const hash = await sha256(pin);
-      const ok = await syncedUpdate(s => {
-        const t = s.members.find(x => x.id === m.id);
-        if (!t) return false;            // removed in the meantime
-        if (t.pinHash) return false;     // claimed by someone else first
-        t.pinHash = hash;
-      });
-      if (!ok) { showToast("Couldn't claim — refresh and try again"); return false; }
-      addUnlocked(m.id);
-      showToast("PIN set — squid claimed! 🦑");
-      return true;
+      if (await sha256(pin) === m.pinHash) { addUnlocked(m.id); return true; }
+      showToast("❌ Wrong PIN, squid imposter!");
+      return false;
+    } finally {
+      busy = false;
     }
-    const pin = prompt(`Enter ${m.name}'s 4-digit PIN to ${action}:`);
-    if (pin === null) return false;
-    if (await sha256(pin) === m.pinHash) { addUnlocked(m.id); return true; }
-    showToast("❌ Wrong PIN, squid imposter!");
-    return false;
   }
 
   // ── Data sync ────────────────────────────────
@@ -326,6 +333,7 @@
   // This shrinks the lost-update window from "since page load" to milliseconds.
   // The mutator can return false to abort (no save happens).
   async function syncedUpdate(mutator) {
+    busy = true;
     try {
       const fresh = normalize(await fetchState());
       if (mutator(fresh) === false) {
@@ -341,6 +349,8 @@
     } catch (e) {
       showToast("⚠️ " + (e.message || "Sync failed — refresh and try again"));
       return false;
+    } finally {
+      busy = false;
     }
   }
 
@@ -462,10 +472,12 @@
 
   // ── Add form ─────────────────────────────────
   document.getElementById("add-btn").addEventListener("click", () => {
+    formOpen = true;
     document.getElementById("add-form").style.display = "block";
     document.getElementById("add-btn").style.display = "none";
   });
   document.getElementById("btn-cancel").addEventListener("click", () => {
+    formOpen = false;
     document.getElementById("add-form").style.display = "none";
     document.getElementById("add-btn").style.display = "block";
     clearForm();
@@ -484,6 +496,7 @@
     });
     if (!ok) return;
     addUnlocked(id); // this device is automatically trusted for your own squid
+    formOpen = false;
     document.getElementById("add-form").style.display = "none";
     document.getElementById("add-btn").style.display = "block";
     clearForm();
@@ -494,6 +507,24 @@
     document.getElementById("inp-name").value = "";
     document.getElementById("inp-goal").value = "";
     document.getElementById("inp-pin").value = "";
+  }
+
+  // ── Live auto-refresh ────────────────────────
+  const POLL_MS = 30000; // re-check every 30s; lower = snappier but more API calls
+
+  async function poll() {
+    // Skip if the user is busy typing, entering a PIN, or a save is in flight
+    if (formOpen || busy || !state) return;
+    try {
+      const fresh = normalize(await fetchState());
+      // Only re-render if something actually changed (avoids flicker)
+      if (JSON.stringify(fresh) !== JSON.stringify(state)) {
+        state = fresh;
+        render();
+      }
+    } catch (e) {
+      // Stay quiet on transient poll failures — the next tick will retry
+    }
   }
 
   function showToast(msg) {
@@ -507,6 +538,12 @@
   }
 
   load();
+  setInterval(poll, POLL_MS);
+
+  // Also refresh the moment you return to the tab after it was hidden
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) poll();
+  });
 </script>
 </body>
 </html>
