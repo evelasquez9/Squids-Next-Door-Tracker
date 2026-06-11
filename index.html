@@ -117,6 +117,7 @@
     border-radius: 16px; padding: 20px; margin-top: 8px;
   }
   #add-form .form-title { color: #e0f2fe; margin-bottom: 12px; font-size: 15px; }
+  #add-form .form-hint { color: #64748b; font-size: 11px; margin: -4px 0 10px; }
   #add-form input {
     width: 100%; background: rgba(10,22,40,0.8);
     border: 1px solid rgba(125,211,252,0.25);
@@ -195,11 +196,7 @@
 </header>
 
 <main>
-  <div id="setup-banner" style="display:none">
-    ⚠️ <strong>Setup needed:</strong> Open <code>index.html</code> and replace
-    <code>YOUR_ACCESS_KEY</code> and <code>YOUR_BIN_ID</code> with your JSONBin credentials.
-    See the comments at the top of the &lt;script&gt; for instructions.
-  </div>
+  <div id="setup-banner" style="display:none"></div>
   <div id="cards"></div>
   <div id="empty-msg" class="empty-msg" style="display:none">No squids yet — add your crew below! 🌊</div>
   <button id="add-btn">+ Add a Squid to the Squad</button>
@@ -207,6 +204,8 @@
     <div class="form-title">🦑 New Squid</div>
     <input id="inp-name" type="text" placeholder="Your name" />
     <input id="inp-goal" type="text" placeholder="Your daily goal (e.g. Run 1 mile)" />
+    <input id="inp-pin" type="tel" inputmode="numeric" maxlength="4" placeholder="Choose a 4-digit PIN" />
+    <div class="form-hint">Your PIN protects your squid — only someone who knows it can ink or remove you. Don't reuse a real password!</div>
     <div class="form-btns">
       <button class="btn-join" id="btn-join">Join the Squad 🦑</button>
       <button class="btn-cancel" id="btn-cancel">Cancel</button>
@@ -215,21 +214,16 @@
   <div class="legend" id="legend" style="display:none">
     Streak badges: <span style="color:#34d399">7🦑</span> ·
     <span style="color:#c084fc">14🦑</span> ·
-    <span style="color:#ffd700">30🦑</span> · Resets daily at midnight
+    <span style="color:#ffd700">30🦑</span> · Resets daily at local midnight
   </div>
 </main>
 
 <script>
   // ─────────────────────────────────────────────
-  //  STEP 1: Go to https://jsonbin.io and sign up (free)
-  //  STEP 2: Click "CREATE BIN", paste in: {"members":[],"lastReset":""}
-  //          and click Create. Copy the Bin ID from the URL.
-  //  STEP 3: Go to API Keys -> Create Access Key. Check only
-  //          "Read" and "Update" under Bins, then copy the key.
-  //  STEP 4: Paste both values below, then save and upload to GitHub.
+  //  JSONBin credentials (must be wrapped in quotes!)
   // ─────────────────────────────────────────────
-  const ACCESS_KEY = "$2a$10$MI0ASTi13LBCB2SEOWFhsukI43QldC8frLt6ZmWvQ84B45i4TXpya"; // e.g. "$2a$10$abc123..."
-  const BIN_ID  = "6a2b0d03f5f4af5e29e1aa55";   // e.g. "6849a1f2..."
+  const ACCESS_KEY = "$2a$10$MI0ASTi13LBCB2SEOWFhsukI43QldC8frLt6ZmWvQ84B45i4TXpya";
+  const BIN_ID  = "6a2b0d03f5f4af5e29e1aa55";
   // ─────────────────────────────────────────────
 
   const BASE = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
@@ -245,9 +239,55 @@
     { days: 7,  label: "7🦑 LEGEND",  color: "#34d399" },
   ];
 
-  const today = () => new Date().toISOString().slice(0, 10);
+  // Local-time date string (YYYY-MM-DD) — resets happen at YOUR midnight
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
   let state = null;
 
+  // ── PIN helpers ──────────────────────────────
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  function getUnlocked() {
+    try { return JSON.parse(localStorage.getItem("squidUnlocked") || "[]"); }
+    catch { return []; }
+  }
+  function addUnlocked(id) {
+    const u = getUnlocked();
+    if (!u.includes(id)) { u.push(id); localStorage.setItem("squidUnlocked", JSON.stringify(u)); }
+  }
+  // Returns true if the current device is allowed to act for this member
+  async function verifyMember(m, action) {
+    if (getUnlocked().includes(m.id)) return true;
+    if (!m.pinHash) {
+      // Legacy member created before PINs existed — first interaction claims it
+      const pin = prompt(`${m.name} has no PIN yet. Set a 4-digit PIN to claim this squid:`);
+      if (pin === null) return false;
+      if (!/^\d{4}$/.test(pin)) { showToast("PIN must be exactly 4 digits"); return false; }
+      const hash = await sha256(pin);
+      const ok = await syncedUpdate(s => {
+        const t = s.members.find(x => x.id === m.id);
+        if (!t) return false;            // removed in the meantime
+        if (t.pinHash) return false;     // claimed by someone else first
+        t.pinHash = hash;
+      });
+      if (!ok) { showToast("Couldn't claim — refresh and try again"); return false; }
+      addUnlocked(m.id);
+      showToast("PIN set — squid claimed! 🦑");
+      return true;
+    }
+    const pin = prompt(`Enter ${m.name}'s 4-digit PIN to ${action}:`);
+    if (pin === null) return false;
+    if (await sha256(pin) === m.pinHash) { addUnlocked(m.id); return true; }
+    showToast("❌ Wrong PIN, squid imposter!");
+    return false;
+  }
+
+  // ── Data sync ────────────────────────────────
   async function fetchState() {
     const r = await fetch(BASE, { headers: HEADERS });
     if (!r.ok) throw new Error("HTTP " + r.status + " from JSONBin — check that your Bin ID is correct and your Access Key has Read + Update permissions.");
@@ -256,28 +296,60 @@
   }
 
   async function pushState(s) {
-    await fetch(BASE, { method: "PUT", headers: HEADERS, body: JSON.stringify(s) });
+    const r = await fetch(BASE, { method: "PUT", headers: HEADERS, body: JSON.stringify(s) });
+    if (!r.ok) throw new Error("Save failed (HTTP " + r.status + ")");
+  }
+
+  // Apply daily reset + defaults to a fetched state object
+  function normalize(s) {
+    if (!s || typeof s !== "object") s = {};
+    if (!Array.isArray(s.members)) s.members = [];
+    if (s.lastReset !== today()) {
+      s.members = s.members.map(m => ({
+        ...m, streak: m.completedToday ? m.streak : 0, completedToday: false,
+      }));
+      s.lastReset = today();
+    }
+    return s;
+  }
+
+  // Re-fetch latest state, apply a change to it, then save.
+  // This shrinks the lost-update window from "since page load" to milliseconds.
+  // The mutator can return false to abort (no save happens).
+  async function syncedUpdate(mutator) {
+    try {
+      const fresh = normalize(await fetchState());
+      if (mutator(fresh) === false) {
+        // Still adopt the fresh data so the UI reflects reality
+        state = fresh;
+        render();
+        return false;
+      }
+      state = fresh;
+      render();
+      await pushState(state);
+      return true;
+    } catch (e) {
+      showToast("⚠️ " + (e.message || "Sync failed — refresh and try again"));
+      return false;
+    }
   }
 
   async function load() {
     if (ACCESS_KEY === "YOUR_ACCESS_KEY" || BIN_ID === "YOUR_BIN_ID") {
-      document.getElementById("setup-banner").style.display = "block";
+      const b = document.getElementById("setup-banner");
+      b.innerHTML = "⚠️ <strong>Setup needed:</strong> Open <code>index.html</code> and paste your JSONBin Access Key and Bin ID into the script (in quotes).";
+      b.style.display = "block";
       document.getElementById("add-btn").style.display = "none";
       return;
     }
     try {
-      state = await fetchState();
-      if (!state.members) state = { members: [], lastReset: "" };
-      // Daily reset
-      if (state.lastReset !== today()) {
-        state.members = state.members.map(m => ({
-          ...m, streak: m.completedToday ? m.streak : 0, completedToday: false,
-        }));
-        state.lastReset = today();
-        await pushState(state);
-      }
+      const fresh = await fetchState();
+      const needsReset = fresh.lastReset !== today();
+      state = normalize(fresh);
+      if (needsReset) await pushState(state);
       render();
-    } catch(e) {
+    } catch (e) {
       const b = document.getElementById("setup-banner");
       b.innerHTML = "⚠️ <strong>Connection error:</strong> " + esc(String(e.message || e));
       b.style.display = "block";
@@ -288,12 +360,12 @@
     return MILESTONES.find(m => streak >= m.days) || null;
   }
 
+  // ── Rendering ────────────────────────────────
   function render() {
     const members = state.members;
     const done = members.filter(m => m.completedToday).length;
     const total = members.length;
 
-    // Summary bar
     const bar = document.getElementById("summary-bar");
     if (total > 0) {
       bar.style.display = "inline-block";
@@ -304,11 +376,9 @@
       bar.style.display = "none";
     }
 
-    // Empty message
     document.getElementById("empty-msg").style.display = total === 0 ? "block" : "none";
     document.getElementById("legend").style.display = total > 0 ? "block" : "none";
 
-    // Cards
     const container = document.getElementById("cards");
     container.innerHTML = "";
     members.forEach(m => {
@@ -342,22 +412,31 @@
       b.addEventListener("click", () => remove(b.dataset.id)));
   }
 
+  // ── Actions ──────────────────────────────────
   async function checkin(id) {
-    state.members = state.members.map(m =>
-      m.id === id && !m.completedToday
-        ? { ...m, completedToday: true, streak: m.streak + 1 } : m);
-    render();
-    await pushState(state);
-    showToast("Inked! 🦑");
+    const m = state.members.find(x => x.id === id);
+    if (!m || m.completedToday) return;
+    if (!(await verifyMember(m, "ink it"))) return;
+    const ok = await syncedUpdate(s => {
+      const t = s.members.find(x => x.id === id);
+      if (!t || t.completedToday) return false;
+      t.completedToday = true;
+      t.streak += 1;
+    });
+    if (ok) showToast("Inked! 🦑");
   }
 
   async function remove(id) {
-    state.members = state.members.filter(m => m.id !== id);
-    render();
-    await pushState(state);
+    const m = state.members.find(x => x.id === id);
+    if (!m) return;
+    if (!(await verifyMember(m, "remove them"))) return;
+    if (!confirm(`Remove ${m.name} from the squad? Their streak will be lost.`)) return;
+    await syncedUpdate(s => {
+      s.members = s.members.filter(x => x.id !== id);
+    });
   }
 
-  // Add form
+  // ── Add form ─────────────────────────────────
   document.getElementById("add-btn").addEventListener("click", () => {
     document.getElementById("add-form").style.display = "block";
     document.getElementById("add-btn").style.display = "none";
@@ -365,27 +444,38 @@
   document.getElementById("btn-cancel").addEventListener("click", () => {
     document.getElementById("add-form").style.display = "none";
     document.getElementById("add-btn").style.display = "block";
-    document.getElementById("inp-name").value = "";
-    document.getElementById("inp-goal").value = "";
+    clearForm();
   });
   document.getElementById("btn-join").addEventListener("click", async () => {
     if (!state) { showToast("⚠️ Not connected to database yet."); return; }
     const name = document.getElementById("inp-name").value.trim();
     const goal = document.getElementById("inp-goal").value.trim();
+    const pin  = document.getElementById("inp-pin").value.trim();
     if (!name || !goal) return;
-    state.members.push({ id: Date.now().toString(), name, goal, streak: 0, completedToday: false });
+    if (!/^\d{4}$/.test(pin)) { showToast("PIN must be exactly 4 digits"); return; }
+    const id = Date.now().toString();
+    const pinHash = await sha256(pin);
+    const ok = await syncedUpdate(s => {
+      s.members.push({ id, name, goal, streak: 0, completedToday: false, pinHash });
+    });
+    if (!ok) return;
+    addUnlocked(id); // this device is automatically trusted for your own squid
     document.getElementById("add-form").style.display = "none";
     document.getElementById("add-btn").style.display = "block";
+    clearForm();
+    showToast("Welcome to the squad! 🦑");
+  });
+
+  function clearForm() {
     document.getElementById("inp-name").value = "";
     document.getElementById("inp-goal").value = "";
-    render();
-    await pushState(state);
-  });
+    document.getElementById("inp-pin").value = "";
+  }
 
   function showToast(msg) {
     const t = document.getElementById("toast");
     t.textContent = msg; t.style.display = "block";
-    setTimeout(() => t.style.display = "none", 2000);
+    setTimeout(() => t.style.display = "none", 2200);
   }
 
   function esc(s) {
