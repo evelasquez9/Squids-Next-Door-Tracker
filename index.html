@@ -510,40 +510,55 @@
   }
 
   // ── Live auto-refresh ────────────────────────
-  // Check every 5 minutes instead of every 30 seconds
+
+  // Poll every 5 minutes instead of every 30 seconds
   const POLL_MS = 300000;
 
   async function poll() {
-   // Do not poll if the tab isn't currently visible
-   if (document.hidden) return;
+    // Don't poll if the tab isn't visible
+    if (document.hidden) return;
 
-   // Skip if the user is busy typing, entering a PIN, or a save is in flight
-   if (formOpen || busy || !state) return;
+    // Skip if the user is busy typing, entering a PIN, or a save is in flight
+    if (formOpen || busy || !state) return;
 
-   try {
-     const fresh = normalize(await fetchState());
+    try {
+      const fresh = normalize(await fetchState());
 
-     // Only re-render if something actually changed
-     if (JSON.stringify(fresh) !== JSON.stringify(state)) {
-       state = fresh;
-       render();
-     }
-   } catch (e) {
-     // Ignore transient failures and try again later
-   }
- }
+      // Only re-render if something actually changed
+      if (JSON.stringify(fresh) !== JSON.stringify(state)) {
+        state = fresh;
+        render();
+      }
+    } catch (e) {
+      // Ignore temporary polling failures
+    }
+  }
 
- load();
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 2200);
+  }
 
- // Poll every 5 minutes while the tab is visible
- setInterval(poll, POLL_MS);
+  function esc(s) {
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
 
- // Immediately refresh when the user comes back to the tab
- document.addEventListener("visibilitychange", () => {
-   if (!document.hidden) {
-     poll();
-   }
- });
+  load();
+
+  // Poll every 5 minutes, but only if the tab is visible
+  setInterval(() => {
+    if (!document.hidden) {
+      poll();
+    }
+  }, POLL_MS);
+
+  // Refresh immediately when returning to the tab
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      poll();
+    }
+  });
 </script>
 </body>
 </html>
