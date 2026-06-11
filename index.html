@@ -228,8 +228,8 @@
   //          "Read" and "Update" under Bins, then copy the key.
   //  STEP 4: Paste both values below, then save and upload to GitHub.
   // ─────────────────────────────────────────────
-  const ACCESS_KEY = $2a$10$MI0ASTi13LBCB2SEOWFhsukI43QldC8frLt6ZmWvQ84B45i4TXpya; // e.g. "$2a$10$abc123..."
-  const BIN_ID  = 6a2b0d03f5f4af5e29e1aa55;   // e.g. "6849a1f2..."
+  const ACCESS_KEY = "$2a$10$MI0ASTi13LBCB2SEOWFhsukI43QldC8frLt6ZmWvQ84B45i4TXpya"; // e.g. "$2a$10$abc123..."
+  const BIN_ID  = "6a2b0d03f5f4af5e29e1aa55";   // e.g. "6849a1f2..."
   // ─────────────────────────────────────────────
 
   const BASE = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
@@ -250,6 +250,7 @@
 
   async function fetchState() {
     const r = await fetch(BASE, { headers: HEADERS });
+    if (!r.ok) throw new Error("HTTP " + r.status + " from JSONBin — check that your Bin ID is correct and your Access Key has Read + Update permissions.");
     const j = await r.json();
     return j.record;
   }
@@ -277,7 +278,9 @@
       }
       render();
     } catch(e) {
-      showToast("⚠️ Couldn't connect to database.");
+      const b = document.getElementById("setup-banner");
+      b.innerHTML = "⚠️ <strong>Connection error:</strong> " + esc(String(e.message || e));
+      b.style.display = "block";
     }
   }
 
@@ -366,6 +369,7 @@
     document.getElementById("inp-goal").value = "";
   });
   document.getElementById("btn-join").addEventListener("click", async () => {
+    if (!state) { showToast("⚠️ Not connected to database yet."); return; }
     const name = document.getElementById("inp-name").value.trim();
     const goal = document.getElementById("inp-goal").value.trim();
     if (!name || !goal) return;
