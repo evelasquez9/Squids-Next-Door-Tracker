@@ -510,40 +510,40 @@
   }
 
   // ── Live auto-refresh ────────────────────────
-  const POLL_MS = 30000; // re-check every 30s; lower = snappier but more API calls
+  // Check every 5 minutes instead of every 30 seconds
+  const POLL_MS = 300000;
 
   async function poll() {
-    // Skip if the user is busy typing, entering a PIN, or a save is in flight
-    if (formOpen || busy || !state) return;
-    try {
-      const fresh = normalize(await fetchState());
-      // Only re-render if something actually changed (avoids flicker)
-      if (JSON.stringify(fresh) !== JSON.stringify(state)) {
-        state = fresh;
-        render();
-      }
-    } catch (e) {
-      // Stay quiet on transient poll failures — the next tick will retry
-    }
-  }
+   // Do not poll if the tab isn't currently visible
+   if (document.hidden) return;
 
-  function showToast(msg) {
-    const t = document.getElementById("toast");
-    t.textContent = msg; t.style.display = "block";
-    setTimeout(() => t.style.display = "none", 2200);
-  }
+   // Skip if the user is busy typing, entering a PIN, or a save is in flight
+   if (formOpen || busy || !state) return;
 
-  function esc(s) {
-    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
+   try {
+     const fresh = normalize(await fetchState());
 
-  load();
-  setInterval(poll, POLL_MS);
+     // Only re-render if something actually changed
+     if (JSON.stringify(fresh) !== JSON.stringify(state)) {
+       state = fresh;
+       render();
+     }
+   } catch (e) {
+     // Ignore transient failures and try again later
+   }
+ }
 
-  // Also refresh the moment you return to the tab after it was hidden
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) poll();
-  });
+ load();
+
+ // Poll every 5 minutes while the tab is visible
+ setInterval(poll, POLL_MS);
+
+ // Immediately refresh when the user comes back to the tab
+ document.addEventListener("visibilitychange", () => {
+   if (!document.hidden) {
+     poll();
+   }
+ });
 </script>
 </body>
 </html>
