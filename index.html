@@ -159,6 +159,29 @@
     font-size: 14px; cursor: pointer; font-family: Georgia, serif;
   }
   .legend { margin-top: 28px; color: #94c5e0; font-size: 12px; text-align: center; }
+  /* Squid of Shame banner */
+  #shame-banner {
+    background: linear-gradient(135deg, rgba(127,29,29,0.55), rgba(153,27,27,0.35));
+    border: 1px solid rgba(239,68,68,0.5);
+    border-radius: 16px; padding: 16px 20px;
+    margin-bottom: 18px; text-align: center;
+    box-shadow: 0 0 24px rgba(239,68,68,0.12);
+  }
+  #shame-banner .shame-title {
+    font-size: 11px; letter-spacing: 5px; text-transform: uppercase;
+    color: #fca5a5; margin-bottom: 6px;
+  }
+  #shame-banner .shame-name {
+    font-size: clamp(18px, 4vw, 24px); font-style: italic;
+    color: #fecaca; font-weight: bold;
+    text-shadow: 0 0 14px rgba(239,68,68,0.4);
+  }
+  #shame-banner .shame-detail {
+    font-size: 12px; color: #f87171; margin-top: 6px; opacity: 0.85;
+  }
+  .card-missed {
+    font-size: 12px; margin-top: 4px;
+  }
   #toast {
     position: fixed; top: 16px; right: 16px;
     background: #0e7490; color: #e0f2fe;
@@ -216,6 +239,7 @@
 
 <main>
   <div id="setup-banner" style="display:none"></div>
+  <div id="shame-banner" style="display:none"></div>
   <div id="cards"></div>
   <div id="empty-msg" class="empty-msg" style="display:none">No squids yet — add your crew below! 🌊</div>
   <button id="add-btn">+ Add a Squid to the Squad</button>
@@ -262,6 +286,15 @@
   // day flips at the same moment regardless of device timezone or clock
   const today = () => {
     return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+  };
+
+  // ISO date of the most recent Monday in ET — used to reset weekly miss counts
+  const weekStart = () => {
+    const etStr = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+    const d = new Date(etStr + "T00:00:00");
+    const day = d.getDay(); // 0=Sun … 6=Sat
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    return d.toISOString().slice(0, 10);
   };
 
   let state = null;
@@ -330,13 +363,35 @@
   function normalize(s) {
     if (!s || typeof s !== "object") s = {};
     if (!Array.isArray(s.members)) s.members = [];
+
+    // Daily reset — runs first so a missed Sunday gets counted before the weekly wipe
     if (s.lastReset !== today()) {
       s.members = s.members.map(m => ({
-        ...m, streak: m.completedToday ? m.streak : 0, completedToday: false,
+        ...m,
+        streak: m.completedToday ? m.streak : 0,
+        missedThisWeek: (m.missedThisWeek || 0) + (m.completedToday ? 0 : 1),
+        completedToday: false,
       }));
       s.lastReset = today();
     }
+
+    // Weekly reset — clears miss counts every Monday ET
+    if (s.weekStart !== weekStart()) {
+      s.members = s.members.map(m => ({ ...m, missedThisWeek: 0 }));
+      s.weekStart = weekStart();
+    }
+
     return s;
+  }
+
+  function getSquidOfShame(members) {
+    const candidates = members.filter(m => (m.missedThisWeek || 0) > 0);
+    if (!candidates.length) return null;
+    return candidates.reduce((worst, m) => {
+      if ((m.missedThisWeek || 0) > (worst.missedThisWeek || 0)) return m;
+      if ((m.missedThisWeek || 0) === (worst.missedThisWeek || 0) && m.streak < worst.streak) return m;
+      return worst;
+    });
   }
 
   // Re-fetch latest state, apply a change to it, then save.
@@ -408,22 +463,42 @@
     document.getElementById("empty-msg").style.display = total === 0 ? "block" : "none";
     document.getElementById("legend").style.display = total > 0 ? "block" : "none";
 
+    // Squid of Shame banner
+    const shame = getSquidOfShame(members);
+    const shameBanner = document.getElementById("shame-banner");
+    if (shame) {
+      shameBanner.style.display = "block";
+      const days = shame.missedThisWeek;
+      shameBanner.innerHTML = `
+        <div class="shame-title">🪣 Squid of Shame — This Week</div>
+        <div class="shame-name">🦑 ${esc(shame.name)} 🦑</div>
+        <div class="shame-detail">Missed ${days} day${days === 1 ? "" : "s"} this week — step it up!</div>`;
+    } else {
+      shameBanner.style.display = "none";
+    }
+
     const container = document.getElementById("cards");
     container.innerHTML = "";
     members.forEach(m => {
       const ms = getMilestone(m.streak);
+      const missed = m.missedThisWeek || 0;
+      const isShamed = shame && shame.id === m.id;
       const card = document.createElement("div");
       card.className = `card ${m.completedToday ? "done" : "pending"}`;
       card.innerHTML = `
-        <div class="card-icon">${m.completedToday ? "✅" : "🦑"}</div>
+        <div class="card-icon">${m.completedToday ? "✅" : (isShamed ? "🪣" : "🦑")}</div>
         <div class="card-info">
           <div class="card-name-row">
             <span class="card-name">${esc(m.name)}</span>
             ${ms ? `<span class="badge" style="background:${ms.color}22;border:1px solid ${ms.color}88;color:${ms.color}">${ms.label}</span>` : ""}
+            ${isShamed ? `<span class="badge" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.45);color:#f87171">🪣 Squid of Shame</span>` : ""}
           </div>
           <div class="card-goal">🎯 ${esc(m.goal)}</div>
           <div class="card-streak" style="color:${m.streak > 0 ? "#34d399" : "#64748b"}">
             ${m.streak > 0 ? `🔥 ${m.streak}-day streak` : "No streak yet"}
+          </div>
+          <div class="card-missed" style="color:${missed > 0 ? "#f87171" : "#475569"}">
+            ${missed > 0 ? `💀 ${missed} miss${missed === 1 ? "" : "es"} this week` : "✨ No misses this week"}
           </div>
         </div>
         <div class="card-actions">
