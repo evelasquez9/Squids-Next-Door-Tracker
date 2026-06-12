@@ -376,8 +376,11 @@
     }
 
     // Weekly reset — clears miss counts every Monday ET
+    // Only wipe if a previous week was recorded (not first-time init)
     if (s.weekStart !== weekStart()) {
-      s.members = s.members.map(m => ({ ...m, missedThisWeek: 0 }));
+      if (s.weekStart) {
+        s.members = s.members.map(m => ({ ...m, missedThisWeek: 0 }));
+      }
       s.weekStart = weekStart();
     }
 
