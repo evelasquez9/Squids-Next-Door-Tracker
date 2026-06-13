@@ -146,6 +146,17 @@
     outline: none;
   }
   #add-form input::placeholder { color: #475569; }
+  .goal-type-toggle {
+    display: flex; gap: 8px; margin-bottom: 10px;
+  }
+  .goal-type-toggle button {
+    flex: 1; padding: 8px; border-radius: 10px; font-size: 13px;
+    font-family: Georgia, serif; cursor: pointer; border: 1px solid rgba(125,211,252,0.25);
+    background: rgba(10,22,40,0.8); color: #7dd3fc; transition: all 0.2s;
+  }
+  .goal-type-toggle button.active {
+    background: rgba(14,165,233,0.25); border-color: #38bdf8; color: #e0f2fe;
+  }
   .form-btns { display: flex; gap: 10px; }
   .btn-join {
     flex: 1; background: linear-gradient(135deg, #0284c7, #0369a1);
@@ -246,7 +257,14 @@
   <div id="add-form" style="display:none">
     <div class="form-title">🦑 New Squid</div>
     <input id="inp-name" type="text" placeholder="Your name" />
-    <input id="inp-goal" type="text" placeholder="Your daily goal (e.g. Run 1 mile)" />
+    <input id="inp-goal" type="text" placeholder="Your goal" />
+    <div class="goal-type-toggle">
+      <button id="btn-type-daily" class="active">📅 Daily</button>
+      <button id="btn-type-weekly">🗓️ Weekly</button>
+    </div>
+    <div id="weekly-target-row" style="display:none">
+      <input id="inp-weekly-target" type="number" min="1" max="7" placeholder="How many times per week? (e.g. 4)" />
+    </div>
     <input id="inp-pin" type="tel" inputmode="numeric" maxlength="4" placeholder="Choose a 4-digit PIN" />
     <div class="form-hint">Your PIN protects your squid — only someone who knows it can ink or remove you. Don't reuse a real password!</div>
     <div class="form-btns">
@@ -366,20 +384,37 @@
 
     // Daily reset — runs first so a missed Sunday gets counted before the weekly wipe
     if (s.lastReset !== today()) {
-      s.members = s.members.map(m => ({
-        ...m,
-        streak: m.completedToday ? m.streak : 0,
-        missedThisWeek: (m.missedThisWeek || 0) + (m.completedToday ? 0 : 1),
-        completedToday: false,
-      }));
+      s.members = s.members.map(m => {
+        if (m.goalType === "weekly") {
+          // Weekly members just reset the daily ink flag; streak/misses settle at weekly reset
+          return { ...m, completedToday: false };
+        }
+        return {
+          ...m,
+          streak: m.completedToday ? m.streak : 0,
+          missedThisWeek: (m.missedThisWeek || 0) + (m.completedToday ? 0 : 1),
+          completedToday: false,
+        };
+      });
       s.lastReset = today();
     }
 
-    // Weekly reset — clears miss counts every Monday ET
-    // Only wipe if a previous week was recorded (not first-time init)
+    // Weekly reset — every Monday ET
+    // Only evaluate if a previous week was recorded (not first-time init)
     if (s.weekStart !== weekStart()) {
       if (s.weekStart) {
-        s.members = s.members.map(m => ({ ...m, missedThisWeek: 0 }));
+        s.members = s.members.map(m => {
+          if (m.goalType === "weekly") {
+            const hit = (m.weeklyCount || 0) >= (m.weeklyTarget || 1);
+            return {
+              ...m,
+              streak: hit ? (m.streak || 0) + 1 : 0,
+              missedThisWeek: hit ? 0 : 1,
+              weeklyCount: 0,
+            };
+          }
+          return { ...m, missedThisWeek: 0 };
+        });
       }
       s.weekStart = weekStart();
     }
@@ -388,6 +423,8 @@
   }
 
   function getSquidOfShame(members) {
+    // Weekly members only show up in shame if they failed last week (missedThisWeek=1)
+    // Daily members show up as soon as they accumulate any misses this week
     const candidates = members.filter(m => (m.missedThisWeek || 0) > 0);
     if (!candidates.length) return null;
     return candidates.reduce((worst, m) => {
@@ -471,11 +508,14 @@
     const shameBanner = document.getElementById("shame-banner");
     if (shame) {
       shameBanner.style.display = "block";
-      const days = shame.missedThisWeek;
+      const isWeekly = shame.goalType === "weekly";
+      const shameDetail = isWeekly
+        ? `Only hit ${shame.weeklyCount || 0}/${shame.weeklyTarget || 1} this week — step it up!`
+        : `Missed ${shame.missedThisWeek} day${shame.missedThisWeek === 1 ? "" : "s"} this week — step it up!`;
       shameBanner.innerHTML = `
         <div class="shame-title">🪣 Squid of Shame — This Week</div>
         <div class="shame-name">🦑 ${esc(shame.name)} 🦑</div>
-        <div class="shame-detail">Missed ${days} day${days === 1 ? "" : "s"} this week — step it up!</div>`;
+        <div class="shame-detail">${shameDetail}</div>`;
     } else {
       shameBanner.style.display = "none";
     }
@@ -483,26 +523,41 @@
     const container = document.getElementById("cards");
     container.innerHTML = "";
     members.forEach(m => {
+      const isWeekly = m.goalType === "weekly";
       const ms = getMilestone(m.streak);
       const missed = m.missedThisWeek || 0;
       const isShamed = shame && shame.id === m.id;
+
+      // Weekly progress info
+      const wCount = m.weeklyCount || 0;
+      const wTarget = m.weeklyTarget || 1;
+      const wDone = wCount >= wTarget;
+      const wColor = wDone ? "#34d399" : wCount > 0 ? "#38bdf8" : "#64748b";
+
+      // Shame banner detail is different for weekly members
+      const streakLabel = isWeekly
+        ? (m.streak > 0 ? `🔥 ${m.streak}-week streak` : "No streak yet")
+        : (m.streak > 0 ? `🔥 ${m.streak}-day streak` : "No streak yet");
+      const streakColor = m.streak > 0 ? "#34d399" : "#64748b";
+
+      const missedRow = isWeekly
+        ? `<div class="card-missed" style="color:${wColor}">🗓️ ${wCount}/${wTarget} this week${wDone ? " ✓" : ""}</div>`
+        : `<div class="card-missed" style="color:${missed > 0 ? "#f87171" : "#94a3b8"}">${missed > 0 ? `💀 ${missed} miss${missed === 1 ? "" : "es"} this week` : "✨ No misses this week"}</div>`;
+
       const card = document.createElement("div");
       card.className = `card ${m.completedToday ? "done" : "pending"}`;
       card.innerHTML = `
-        <div class="card-icon">${m.completedToday ? "✅" : (isShamed ? "🪣" : "🦑")}</div>
+        <div class="card-icon">${m.completedToday ? "✅" : (isShamed ? "🪣" : (isWeekly ? "🗓️" : "🦑"))}</div>
         <div class="card-info">
           <div class="card-name-row">
             <span class="card-name">${esc(m.name)}</span>
+            ${isWeekly ? `<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8">Weekly</span>` : ""}
             ${ms ? `<span class="badge" style="background:${ms.color}22;border:1px solid ${ms.color}88;color:${ms.color}">${ms.label}</span>` : ""}
             ${isShamed ? `<span class="badge" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.45);color:#f87171">🪣 Squid of Shame</span>` : ""}
           </div>
           <div class="card-goal">🎯 ${esc(m.goal)}</div>
-          <div class="card-streak" style="color:${m.streak > 0 ? "#34d399" : "#64748b"}">
-            ${m.streak > 0 ? `🔥 ${m.streak}-day streak` : "No streak yet"}
-          </div>
-          <div class="card-missed" style="color:${missed > 0 ? "#f87171" : "#94a3b8"}">
-            ${missed > 0 ? `💀 ${missed} miss${missed === 1 ? "" : "es"} this week` : "✨ No misses this week"}
-          </div>
+          <div class="card-streak" style="color:${streakColor}">${streakLabel}</div>
+          ${missedRow}
         </div>
         <div class="card-actions">
           ${m.completedToday
@@ -530,7 +585,11 @@
       const t = s.members.find(x => x.id === id);
       if (!t || t.completedToday) return false;
       t.completedToday = true;
-      t.streak += 1;
+      if (t.goalType === "weekly") {
+        t.weeklyCount = (t.weeklyCount || 0) + 1;
+      } else {
+        t.streak += 1;
+      }
     });
     if (ok) showToast("Inked! 🦑");
   }
@@ -543,7 +602,11 @@
       const t = s.members.find(x => x.id === id);
       if (!t || !t.completedToday) return false;
       t.completedToday = false;
-      t.streak = Math.max(0, t.streak - 1);
+      if (t.goalType === "weekly") {
+        t.weeklyCount = Math.max(0, (t.weeklyCount || 0) - 1);
+      } else {
+        t.streak = Math.max(0, t.streak - 1);
+      }
     });
     if (ok) showToast("Un-inked 💧");
   }
@@ -559,6 +622,21 @@
   }
 
   // ── Add form ─────────────────────────────────
+  let selectedGoalType = "daily";
+
+  document.getElementById("btn-type-daily").addEventListener("click", () => {
+    selectedGoalType = "daily";
+    document.getElementById("btn-type-daily").classList.add("active");
+    document.getElementById("btn-type-weekly").classList.remove("active");
+    document.getElementById("weekly-target-row").style.display = "none";
+  });
+  document.getElementById("btn-type-weekly").addEventListener("click", () => {
+    selectedGoalType = "weekly";
+    document.getElementById("btn-type-weekly").classList.add("active");
+    document.getElementById("btn-type-daily").classList.remove("active");
+    document.getElementById("weekly-target-row").style.display = "block";
+  });
+
   document.getElementById("add-btn").addEventListener("click", () => {
     formOpen = true;
     document.getElementById("add-form").style.display = "block";
@@ -577,13 +655,20 @@
     const pin  = document.getElementById("inp-pin").value.trim();
     if (!name || !goal) return;
     if (!/^\d{4}$/.test(pin)) { showToast("PIN must be exactly 4 digits"); return; }
+    if (selectedGoalType === "weekly") {
+      const t = parseInt(document.getElementById("inp-weekly-target").value, 10);
+      if (!t || t < 1 || t > 7) { showToast("Enter a weekly target between 1 and 7"); return; }
+    }
     const id = Date.now().toString();
     const pinHash = await sha256(pin);
-    const ok = await syncedUpdate(s => {
-      s.members.push({ id, name, goal, streak: 0, completedToday: false, pinHash });
-    });
+    const member = { id, name, goal, goalType: selectedGoalType, streak: 0, completedToday: false, pinHash };
+    if (selectedGoalType === "weekly") {
+      member.weeklyTarget = parseInt(document.getElementById("inp-weekly-target").value, 10);
+      member.weeklyCount = 0;
+    }
+    const ok = await syncedUpdate(s => { s.members.push(member); });
     if (!ok) return;
-    addUnlocked(id); // this device is automatically trusted for your own squid
+    addUnlocked(id);
     formOpen = false;
     document.getElementById("add-form").style.display = "none";
     document.getElementById("add-btn").style.display = "block";
@@ -595,6 +680,11 @@
     document.getElementById("inp-name").value = "";
     document.getElementById("inp-goal").value = "";
     document.getElementById("inp-pin").value = "";
+    document.getElementById("inp-weekly-target").value = "";
+    selectedGoalType = "daily";
+    document.getElementById("btn-type-daily").classList.add("active");
+    document.getElementById("btn-type-weekly").classList.remove("active");
+    document.getElementById("weekly-target-row").style.display = "none";
   }
 
   // ── Live auto-refresh ────────────────────────
