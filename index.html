@@ -223,6 +223,45 @@
   .card-missed {
     font-size: 12px; margin-top: 4px;
   }
+  /* Dual-goal card layout */
+  .goal-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid rgba(125,211,252,0.08);
+  }
+  .goal-row-info { flex: 1; min-width: 0; }
+  .goal-row-btns { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid rgba(125,211,252,0.08);
+    flex-wrap: wrap; gap: 6px;
+  }
+  .card-footer-btns { display: flex; gap: 6px; }
+  /* Edit modal goal2 section */
+  .edit-goal-section { margin-bottom: 4px; }
+  .edit-goal-label {
+    font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+    color: #38bdf8; margin-bottom: 8px; display: flex;
+    align-items: center; justify-content: space-between;
+  }
+  .btn-text-danger {
+    background: none; border: none; color: #f87171;
+    font-size: 11px; cursor: pointer; font-family: Georgia, serif;
+    padding: 0; text-decoration: underline;
+  }
+  #edit-goal2-divider {
+    border: none; border-top: 1px solid rgba(125,211,252,0.15);
+    margin: 12px 0;
+  }
+  #edit-btn-add-goal2 {
+    width: 100%; background: rgba(14,165,233,0.08);
+    border: 1px dashed rgba(125,211,252,0.3);
+    border-radius: 10px; color: #7dd3fc;
+    font-size: 13px; padding: 10px;
+    cursor: pointer; font-family: Georgia, serif; margin-bottom: 12px;
+  }
+  #edit-btn-add-goal2:hover { background: rgba(14,165,233,0.14); }
   #toast {
     position: fixed; top: 16px; right: 16px;
     background: #0e7490; color: #e0f2fe;
@@ -306,14 +345,35 @@
   <div id="edit-modal" style="display:none">
     <div id="edit-modal-box">
       <div class="form-title">✏️ Edit Squid</div>
-      <input id="edit-inp-goal" type="text" placeholder="Goal" />
-      <div class="goal-type-toggle">
-        <button id="edit-btn-type-daily" class="active">📅 Daily</button>
-        <button id="edit-btn-type-weekly">🗓️ Weekly</button>
+      <!-- Goal 1 -->
+      <div class="edit-goal-section">
+        <div class="edit-goal-label">Goal 1</div>
+        <input id="edit-inp-goal" type="text" placeholder="Goal" />
+        <div class="goal-type-toggle">
+          <button id="edit-btn-type-daily" class="active">📅 Daily</button>
+          <button id="edit-btn-type-weekly">🗓️ Weekly</button>
+        </div>
+        <div id="edit-weekly-target-row" style="display:none">
+          <input id="edit-inp-weekly-target" type="number" min="1" max="7" placeholder="Times per week (e.g. 4)" />
+        </div>
       </div>
-      <div id="edit-weekly-target-row" style="display:none">
-        <input id="edit-inp-weekly-target" type="number" min="1" max="7" placeholder="Times per week (e.g. 4)" />
+      <!-- Goal 2 -->
+      <hr id="edit-goal2-divider" style="display:none">
+      <div id="edit-goal2-section" class="edit-goal-section" style="display:none">
+        <div class="edit-goal-label">
+          <span>Goal 2</span>
+          <button class="btn-text-danger" id="edit-btn-remove-goal2">Remove</button>
+        </div>
+        <input id="edit-inp-goal2" type="text" placeholder="Second goal" />
+        <div class="goal-type-toggle">
+          <button id="edit-btn-type2-daily" class="active">📅 Daily</button>
+          <button id="edit-btn-type2-weekly">🗓️ Weekly</button>
+        </div>
+        <div id="edit-weekly-target2-row" style="display:none">
+          <input id="edit-inp-weekly-target2" type="number" min="1" max="7" placeholder="Times per week (e.g. 4)" />
+        </div>
       </div>
+      <button id="edit-btn-add-goal2">+ Add Second Goal</button>
       <div class="form-btns">
         <button class="btn-join" id="edit-btn-save">Save Changes</button>
         <button class="btn-cancel" id="edit-btn-cancel">Cancel</button>
@@ -431,18 +491,33 @@
     if (!s || typeof s !== "object") s = {};
     if (!Array.isArray(s.members)) s.members = [];
 
+    // Apply daily reset to a single goal object; returns {goal, missed}
+    function dailyResetGoal(g) {
+      if (g.goalType === "weekly") return { goal: { ...g, completedToday: false }, missed: 0 };
+      return {
+        goal: { ...g, streak: g.completedToday ? g.streak : 0, completedToday: false },
+        missed: g.completedToday ? 0 : 1,
+      };
+    }
+    // Apply weekly reset to a single goal object; returns {goal, missed}
+    function weeklyResetGoal(g) {
+      if (g.goalType !== "weekly") return { goal: g, missed: 0 };
+      const hit = (g.weeklyCount || 0) >= (g.weeklyTarget || 1);
+      return {
+        goal: { ...g, streak: hit ? (g.streak || 0) + 1 : 0, weeklyCount: 0 },
+        missed: hit ? 0 : 1,
+      };
+    }
+
     // Daily reset — runs first so a missed Sunday gets counted before the weekly wipe
     if (s.lastReset !== today()) {
       s.members = s.members.map(m => {
-        if (m.goalType === "weekly") {
-          // Weekly members just reset the daily ink flag; streak/misses settle at weekly reset
-          return { ...m, completedToday: false };
-        }
+        const r1 = dailyResetGoal(m);
+        const r2 = m.goal2 ? dailyResetGoal(m.goal2) : null;
         return {
-          ...m,
-          streak: m.completedToday ? m.streak : 0,
-          missedThisWeek: (m.missedThisWeek || 0) + (m.completedToday ? 0 : 1),
-          completedToday: false,
+          ...m, ...r1.goal,
+          missedThisWeek: (m.missedThisWeek || 0) + r1.missed + (r2 ? r2.missed : 0),
+          ...(r2 ? { goal2: r2.goal } : {}),
         };
       });
       s.lastReset = today();
@@ -453,16 +528,13 @@
     if (s.weekStart !== weekStart()) {
       if (s.weekStart) {
         s.members = s.members.map(m => {
-          if (m.goalType === "weekly") {
-            const hit = (m.weeklyCount || 0) >= (m.weeklyTarget || 1);
-            return {
-              ...m,
-              streak: hit ? (m.streak || 0) + 1 : 0,
-              missedThisWeek: hit ? 0 : 1,
-              weeklyCount: 0,
-            };
-          }
-          return { ...m, missedThisWeek: 0 };
+          const r1 = weeklyResetGoal(m);
+          const r2 = m.goal2 ? weeklyResetGoal(m.goal2) : null;
+          return {
+            ...m, ...r1.goal,
+            missedThisWeek: r1.missed + (r2 ? r2.missed : 0),
+            ...(r2 ? { goal2: r2.goal } : {}),
+          };
         });
       }
       s.weekStart = weekStart();
@@ -572,56 +644,102 @@
     const container = document.getElementById("cards");
     container.innerHTML = "";
     members.forEach(m => {
-      const isWeekly = m.goalType === "weekly";
-      const ms = getMilestone(m.streak);
-      const missed = m.missedThisWeek || 0;
       const isShamed = shame && shame.id === m.id;
+      const missed = m.missedThisWeek || 0;
+      const allDone = m.completedToday && (!m.goal2 || m.goal2.completedToday);
 
-      // Weekly progress info
-      const wCount = m.weeklyCount || 0;
-      const wTarget = m.weeklyTarget || 1;
-      const wDone = wCount >= wTarget;
-      const wColor = wDone ? "#34d399" : wCount > 0 ? "#38bdf8" : "#64748b";
-
-      // Shame banner detail is different for weekly members
-      const streakLabel = isWeekly
-        ? (m.streak > 0 ? `🔥 ${m.streak}-week streak` : "No streak yet")
-        : (m.streak > 0 ? `🔥 ${m.streak}-day streak` : "No streak yet");
-      const streakColor = m.streak > 0 ? "#34d399" : "#64748b";
-
-      const missedRow = isWeekly
-        ? `<div class="card-missed" style="color:${wColor}">🗓️ ${wCount}/${wTarget} this week${wDone ? " ✓" : ""}</div>`
-        : `<div class="card-missed" style="color:${missed > 0 ? "#f87171" : "#94a3b8"}">${missed > 0 ? `💀 ${missed} miss${missed === 1 ? "" : "es"} this week` : "✨ No misses this week"}</div>`;
+      function goalRowHtml(g, which) {
+        const isW = g.goalType === "weekly";
+        const wC = g.weeklyCount || 0, wT = g.weeklyTarget || 1;
+        const wDone = wC >= wT;
+        const streakLabel = isW
+          ? (g.streak > 0 ? `🔥 ${g.streak}-week streak` : "No streak yet")
+          : (g.streak > 0 ? `🔥 ${g.streak}-day streak` : "No streak yet");
+        const streakColor = g.streak > 0 ? "#34d399" : "#64748b";
+        const progressLine = isW
+          ? `<div class="card-missed" style="color:${wDone?"#34d399":wC>0?"#38bdf8":"#64748b"}">🗓️ ${wC}/${wT} this week${wDone?" ✓":""}</div>`
+          : "";
+        const ms2 = getMilestone(g.streak);
+        const inkBtn = g.completedToday
+          ? `<span class="inked-label" style="font-size:12px">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="${which}">un-ink</button>`
+          : `<button class="btn-ink" data-id="${m.id}" data-goal="${which}">Ink It! 🦑</button>`;
+        return `<div class="goal-row">
+          <div class="goal-row-info">
+            <div class="card-goal" style="margin-top:0">🎯 ${esc(g.text || g.goal || "")}
+              ${isW ? `<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8;margin-left:4px">Weekly</span>` : ""}
+              ${ms2 ? `<span class="badge" style="background:${ms2.color}22;border:1px solid ${ms2.color}88;color:${ms2.color};margin-left:4px">${ms2.label}</span>` : ""}
+            </div>
+            <div class="card-streak" style="color:${streakColor}">${streakLabel}</div>
+            ${progressLine}
+          </div>
+          <div class="goal-row-btns">${inkBtn}</div>
+        </div>`;
+      }
 
       const card = document.createElement("div");
-      card.className = `card ${m.completedToday ? "done" : "pending"}`;
-      card.innerHTML = `
-        <div class="card-icon">${m.completedToday ? "✅" : (isShamed ? "🪣" : (isWeekly ? "🗓️" : "🦑"))}</div>
-        <div class="card-info">
-          <div class="card-name-row">
-            <span class="card-name">${esc(m.name)}</span>
-            ${isWeekly ? `<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8">Weekly</span>` : ""}
-            ${ms ? `<span class="badge" style="background:${ms.color}22;border:1px solid ${ms.color}88;color:${ms.color}">${ms.label}</span>` : ""}
-            ${isShamed ? `<span class="badge" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.45);color:#f87171">🪣 Squid of Shame</span>` : ""}
+      card.className = `card ${allDone ? "done" : "pending"}`;
+
+      if (m.goal2) {
+        // Dual-goal layout
+        const primaryGoalObj = { ...m, text: m.goal };
+        card.innerHTML = `
+          <div class="card-icon">${allDone ? "✅" : (isShamed ? "🪣" : "🦑")}</div>
+          <div class="card-info" style="width:100%">
+            <div class="card-name-row">
+              <span class="card-name">${esc(m.name)}</span>
+              ${isShamed ? `<span class="badge" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.45);color:#f87171">🪣 Squid of Shame</span>` : ""}
+            </div>
+            ${goalRowHtml(primaryGoalObj, "primary")}
+            ${goalRowHtml(m.goal2, "secondary")}
+            <div class="card-footer">
+              <div class="card-missed" style="color:${missed>0?"#f87171":"#94a3b8"}">${missed>0?`💀 ${missed} miss${missed===1?"":"es"} this week`:"✨ No misses this week"}</div>
+              <div class="card-footer-btns">
+                <button class="btn-edit" data-id="${m.id}">edit</button>
+                <button class="btn-remove" data-id="${m.id}">remove</button>
+              </div>
+            </div>
+          </div>`;
+      } else {
+        // Single-goal layout (original)
+        const isWeekly = m.goalType === "weekly";
+        const ms = getMilestone(m.streak);
+        const wCount = m.weeklyCount || 0, wTarget = m.weeklyTarget || 1;
+        const wDone = wCount >= wTarget;
+        const wColor = wDone ? "#34d399" : wCount > 0 ? "#38bdf8" : "#64748b";
+        const streakLabel = isWeekly
+          ? (m.streak > 0 ? `🔥 ${m.streak}-week streak` : "No streak yet")
+          : (m.streak > 0 ? `🔥 ${m.streak}-day streak` : "No streak yet");
+        const missedRow = isWeekly
+          ? `<div class="card-missed" style="color:${wColor}">🗓️ ${wCount}/${wTarget} this week${wDone?" ✓":""}</div>`
+          : `<div class="card-missed" style="color:${missed>0?"#f87171":"#94a3b8"}">${missed>0?`💀 ${missed} miss${missed===1?"":"es"} this week`:"✨ No misses this week"}</div>`;
+        card.innerHTML = `
+          <div class="card-icon">${m.completedToday?"✅":(isShamed?"🪣":(isWeekly?"🗓️":"🦑"))}</div>
+          <div class="card-info">
+            <div class="card-name-row">
+              <span class="card-name">${esc(m.name)}</span>
+              ${isWeekly?`<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8">Weekly</span>`:""}
+              ${ms?`<span class="badge" style="background:${ms.color}22;border:1px solid ${ms.color}88;color:${ms.color}">${ms.label}</span>`:""}
+              ${isShamed?`<span class="badge" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.45);color:#f87171">🪣 Squid of Shame</span>`:""}
+            </div>
+            <div class="card-goal">🎯 ${esc(m.goal)}</div>
+            <div class="card-streak" style="color:${m.streak>0?"#34d399":"#64748b"}">${streakLabel}</div>
+            ${missedRow}
           </div>
-          <div class="card-goal">🎯 ${esc(m.goal)}</div>
-          <div class="card-streak" style="color:${streakColor}">${streakLabel}</div>
-          ${missedRow}
-        </div>
-        <div class="card-actions">
-          ${m.completedToday
-            ? `<span class="inked-label">Inked ✓</span><button class="btn-unink" data-id="${m.id}">un-ink</button>`
-            : `<button class="btn-ink" data-id="${m.id}">Ink It! 🦑</button>`}
-          <button class="btn-edit" data-id="${m.id}">edit</button>
-          <button class="btn-remove" data-id="${m.id}">remove</button>
-        </div>`;
+          <div class="card-actions">
+            ${m.completedToday
+              ?`<span class="inked-label">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="primary">un-ink</button>`
+              :`<button class="btn-ink" data-id="${m.id}" data-goal="primary">Ink It! 🦑</button>`}
+            <button class="btn-edit" data-id="${m.id}">edit</button>
+            <button class="btn-remove" data-id="${m.id}">remove</button>
+          </div>`;
+      }
       container.appendChild(card);
     });
 
     container.querySelectorAll(".btn-ink").forEach(b =>
-      b.addEventListener("click", () => checkin(b.dataset.id)));
+      b.addEventListener("click", () => checkin(b.dataset.id, b.dataset.goal || "primary")));
     container.querySelectorAll(".btn-unink").forEach(b =>
-      b.addEventListener("click", () => uncheckin(b.dataset.id)));
+      b.addEventListener("click", () => uncheckin(b.dataset.id, b.dataset.goal || "primary")));
     container.querySelectorAll(".btn-edit").forEach(b =>
       b.addEventListener("click", () => openEditModal(b.dataset.id)));
     container.querySelectorAll(".btn-remove").forEach(b =>
@@ -629,36 +747,38 @@
   }
 
   // ── Actions ──────────────────────────────────
-  async function checkin(id) {
+  async function checkin(id, which = "primary") {
     const m = state.members.find(x => x.id === id);
-    if (!m || m.completedToday) return;
+    if (!m) return;
+    const g = which === "secondary" ? m.goal2 : m;
+    if (!g || g.completedToday) return;
     if (!(await verifyMember(m, "ink it"))) return;
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
-      if (!t || t.completedToday) return false;
-      t.completedToday = true;
-      if (t.goalType === "weekly") {
-        t.weeklyCount = (t.weeklyCount || 0) + 1;
-      } else {
-        t.streak += 1;
-      }
+      if (!t) return false;
+      const tg = which === "secondary" ? t.goal2 : t;
+      if (!tg || tg.completedToday) return false;
+      tg.completedToday = true;
+      if (tg.goalType === "weekly") { tg.weeklyCount = (tg.weeklyCount || 0) + 1; }
+      else { tg.streak = (tg.streak || 0) + 1; }
     });
     if (ok) showToast("Inked! 🦑");
   }
 
-  async function uncheckin(id) {
+  async function uncheckin(id, which = "primary") {
     const m = state.members.find(x => x.id === id);
-    if (!m || !m.completedToday) return;
+    if (!m) return;
+    const g = which === "secondary" ? m.goal2 : m;
+    if (!g || !g.completedToday) return;
     if (!(await verifyMember(m, "un-ink it"))) return;
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
-      if (!t || !t.completedToday) return false;
-      t.completedToday = false;
-      if (t.goalType === "weekly") {
-        t.weeklyCount = Math.max(0, (t.weeklyCount || 0) - 1);
-      } else {
-        t.streak = Math.max(0, t.streak - 1);
-      }
+      if (!t) return false;
+      const tg = which === "secondary" ? t.goal2 : t;
+      if (!tg || !tg.completedToday) return false;
+      tg.completedToday = false;
+      if (tg.goalType === "weekly") { tg.weeklyCount = Math.max(0, (tg.weeklyCount || 0) - 1); }
+      else { tg.streak = Math.max(0, tg.streak - 1); }
     });
     if (ok) showToast("Un-inked 💧");
   }
@@ -742,18 +862,66 @@
   // ── Edit modal ───────────────────────────────
   let editingId = null;
   let editGoalType = "daily";
+  let editGoal2Type = "daily";
+  let editHasGoal2 = false;
+
+  function setGoalTypeToggle(dailyBtn, weeklyBtn, targetRow, type) {
+    if (type === "weekly") {
+      weeklyBtn.classList.add("active"); dailyBtn.classList.remove("active");
+      targetRow.style.display = "block";
+    } else {
+      dailyBtn.classList.add("active"); weeklyBtn.classList.remove("active");
+      targetRow.style.display = "none";
+    }
+  }
 
   document.getElementById("edit-btn-type-daily").addEventListener("click", () => {
     editGoalType = "daily";
-    document.getElementById("edit-btn-type-daily").classList.add("active");
-    document.getElementById("edit-btn-type-weekly").classList.remove("active");
-    document.getElementById("edit-weekly-target-row").style.display = "none";
+    setGoalTypeToggle(
+      document.getElementById("edit-btn-type-daily"),
+      document.getElementById("edit-btn-type-weekly"),
+      document.getElementById("edit-weekly-target-row"), "daily");
   });
   document.getElementById("edit-btn-type-weekly").addEventListener("click", () => {
     editGoalType = "weekly";
-    document.getElementById("edit-btn-type-weekly").classList.add("active");
-    document.getElementById("edit-btn-type-daily").classList.remove("active");
-    document.getElementById("edit-weekly-target-row").style.display = "block";
+    setGoalTypeToggle(
+      document.getElementById("edit-btn-type-daily"),
+      document.getElementById("edit-btn-type-weekly"),
+      document.getElementById("edit-weekly-target-row"), "weekly");
+  });
+  document.getElementById("edit-btn-type2-daily").addEventListener("click", () => {
+    editGoal2Type = "daily";
+    setGoalTypeToggle(
+      document.getElementById("edit-btn-type2-daily"),
+      document.getElementById("edit-btn-type2-weekly"),
+      document.getElementById("edit-weekly-target2-row"), "daily");
+  });
+  document.getElementById("edit-btn-type2-weekly").addEventListener("click", () => {
+    editGoal2Type = "weekly";
+    setGoalTypeToggle(
+      document.getElementById("edit-btn-type2-daily"),
+      document.getElementById("edit-btn-type2-weekly"),
+      document.getElementById("edit-weekly-target2-row"), "weekly");
+  });
+
+  document.getElementById("edit-btn-add-goal2").addEventListener("click", () => {
+    editHasGoal2 = true;
+    editGoal2Type = "daily";
+    document.getElementById("edit-goal2-section").style.display = "block";
+    document.getElementById("edit-goal2-divider").style.display = "block";
+    document.getElementById("edit-btn-add-goal2").style.display = "none";
+    document.getElementById("edit-inp-goal2").value = "";
+    setGoalTypeToggle(
+      document.getElementById("edit-btn-type2-daily"),
+      document.getElementById("edit-btn-type2-weekly"),
+      document.getElementById("edit-weekly-target2-row"), "daily");
+  });
+
+  document.getElementById("edit-btn-remove-goal2").addEventListener("click", () => {
+    editHasGoal2 = false;
+    document.getElementById("edit-goal2-section").style.display = "none";
+    document.getElementById("edit-goal2-divider").style.display = "none";
+    document.getElementById("edit-btn-add-goal2").style.display = "block";
   });
 
   async function openEditModal(id) {
@@ -762,17 +930,30 @@
     if (!(await verifyMember(m, "edit them"))) return;
     editingId = id;
     editGoalType = m.goalType || "daily";
+    editHasGoal2 = !!m.goal2;
+    // Primary goal
     document.getElementById("edit-inp-goal").value = m.goal;
     document.getElementById("edit-inp-weekly-target").value = m.weeklyTarget || "";
-    // Set toggle state
-    if (editGoalType === "weekly") {
-      document.getElementById("edit-btn-type-weekly").classList.add("active");
-      document.getElementById("edit-btn-type-daily").classList.remove("active");
-      document.getElementById("edit-weekly-target-row").style.display = "block";
+    setGoalTypeToggle(
+      document.getElementById("edit-btn-type-daily"),
+      document.getElementById("edit-btn-type-weekly"),
+      document.getElementById("edit-weekly-target-row"), editGoalType);
+    // Secondary goal
+    if (m.goal2) {
+      editGoal2Type = m.goal2.goalType || "daily";
+      document.getElementById("edit-inp-goal2").value = m.goal2.text || "";
+      document.getElementById("edit-inp-weekly-target2").value = m.goal2.weeklyTarget || "";
+      setGoalTypeToggle(
+        document.getElementById("edit-btn-type2-daily"),
+        document.getElementById("edit-btn-type2-weekly"),
+        document.getElementById("edit-weekly-target2-row"), editGoal2Type);
+      document.getElementById("edit-goal2-section").style.display = "block";
+      document.getElementById("edit-goal2-divider").style.display = "block";
+      document.getElementById("edit-btn-add-goal2").style.display = "none";
     } else {
-      document.getElementById("edit-btn-type-daily").classList.add("active");
-      document.getElementById("edit-btn-type-weekly").classList.remove("active");
-      document.getElementById("edit-weekly-target-row").style.display = "none";
+      document.getElementById("edit-goal2-section").style.display = "none";
+      document.getElementById("edit-goal2-divider").style.display = "none";
+      document.getElementById("edit-btn-add-goal2").style.display = "block";
     }
     document.getElementById("edit-modal").style.display = "flex";
     busy = true;
@@ -789,7 +970,19 @@
     if (!goal) { showToast("Goal can't be empty"); return; }
     if (editGoalType === "weekly") {
       const t = parseInt(document.getElementById("edit-inp-weekly-target").value, 10);
-      if (!t || t < 1 || t > 7) { showToast("Enter a weekly target between 1 and 7"); return; }
+      if (!t || t < 1 || t > 7) { showToast("Goal 1: enter a weekly target between 1 and 7"); return; }
+    }
+    let goal2Data = null;
+    if (editHasGoal2) {
+      const g2text = document.getElementById("edit-inp-goal2").value.trim();
+      if (!g2text) { showToast("Goal 2 can't be empty"); return; }
+      if (editGoal2Type === "weekly") {
+        const t2 = parseInt(document.getElementById("edit-inp-weekly-target2").value, 10);
+        if (!t2 || t2 < 1 || t2 > 7) { showToast("Goal 2: enter a weekly target between 1 and 7"); return; }
+        goal2Data = { text: g2text, goalType: "weekly", weeklyTarget: t2 };
+      } else {
+        goal2Data = { text: g2text, goalType: "daily" };
+      }
     }
     const id = editingId;
     const newGoalType = editGoalType;
@@ -800,6 +993,7 @@
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
       if (!t) return false;
+      // Update primary goal
       t.goal = goal;
       const wasWeekly = t.goalType === "weekly";
       const nowWeekly = newGoalType === "weekly";
@@ -810,6 +1004,20 @@
       } else {
         if (wasWeekly) { t.weeklyCount = 0; t.streak = 0; }
         delete t.weeklyTarget;
+      }
+      // Update secondary goal
+      if (goal2Data) {
+        const existing = t.goal2;
+        const wasW2 = existing && existing.goalType === "weekly";
+        const nowW2 = goal2Data.goalType === "weekly";
+        t.goal2 = {
+          ...goal2Data,
+          streak: (existing && goal2Data.text === (existing.text || "")) ? (existing.streak || 0) : 0,
+          completedToday: existing ? existing.completedToday : false,
+          weeklyCount: (existing && nowW2 && wasW2) ? (existing.weeklyCount || 0) : 0,
+        };
+      } else {
+        delete t.goal2;
       }
     });
     if (ok) showToast("Updated! 🦑");
