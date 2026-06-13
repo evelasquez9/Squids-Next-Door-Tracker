@@ -120,6 +120,36 @@
     font-family: Georgia, serif;
   }
   .btn-remove:hover { background: rgba(220,38,38,0.22); color: #fecaca; }
+  .btn-edit {
+    background: rgba(125,211,252,0.08); color: #7dd3fc;
+    border: 1px solid rgba(125,211,252,0.25); border-radius: 8px;
+    font-size: 11px; cursor: pointer; padding: 4px 10px;
+    font-family: Georgia, serif;
+  }
+  .btn-edit:hover { background: rgba(125,211,252,0.16); color: #bae6fd; }
+  /* Edit modal */
+  #edit-modal {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(3,14,28,0.75); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #edit-modal-box {
+    background: rgba(14,40,80,0.97);
+    border: 1px solid rgba(125,211,252,0.3);
+    border-radius: 18px; padding: 24px; width: 100%; max-width: 420px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+  #edit-modal-box .form-title { color: #e0f2fe; margin-bottom: 14px; font-size: 15px; }
+  #edit-modal-box input {
+    width: 100%; background: rgba(10,22,40,0.8);
+    border: 1px solid rgba(125,211,252,0.25);
+    border-radius: 10px; padding: 10px 14px;
+    color: #e0f2fe; font-size: 14px;
+    font-family: Georgia, serif; margin-bottom: 10px;
+    outline: none;
+  }
+  #edit-modal-box input::placeholder { color: #475569; }
   .empty-msg { text-align: center; color: #7dd3fc; opacity: 0.6; font-size: 15px; margin: 40px 0; }
   #add-btn {
     display: block; width: 100%;
@@ -272,6 +302,25 @@
       <button class="btn-cancel" id="btn-cancel">Cancel</button>
     </div>
   </div>
+  <!-- Edit member modal -->
+  <div id="edit-modal" style="display:none">
+    <div id="edit-modal-box">
+      <div class="form-title">✏️ Edit Squid</div>
+      <input id="edit-inp-goal" type="text" placeholder="Goal" />
+      <div class="goal-type-toggle">
+        <button id="edit-btn-type-daily" class="active">📅 Daily</button>
+        <button id="edit-btn-type-weekly">🗓️ Weekly</button>
+      </div>
+      <div id="edit-weekly-target-row" style="display:none">
+        <input id="edit-inp-weekly-target" type="number" min="1" max="7" placeholder="Times per week (e.g. 4)" />
+      </div>
+      <div class="form-btns">
+        <button class="btn-join" id="edit-btn-save">Save Changes</button>
+        <button class="btn-cancel" id="edit-btn-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div class="legend" id="legend" style="display:none">
     Streak badges: <span style="color:#34d399">7🦑</span> ·
     <span style="color:#c084fc">14🦑</span> ·
@@ -563,6 +612,7 @@
           ${m.completedToday
             ? `<span class="inked-label">Inked ✓</span><button class="btn-unink" data-id="${m.id}">un-ink</button>`
             : `<button class="btn-ink" data-id="${m.id}">Ink It! 🦑</button>`}
+          <button class="btn-edit" data-id="${m.id}">edit</button>
           <button class="btn-remove" data-id="${m.id}">remove</button>
         </div>`;
       container.appendChild(card);
@@ -572,6 +622,8 @@
       b.addEventListener("click", () => checkin(b.dataset.id)));
     container.querySelectorAll(".btn-unink").forEach(b =>
       b.addEventListener("click", () => uncheckin(b.dataset.id)));
+    container.querySelectorAll(".btn-edit").forEach(b =>
+      b.addEventListener("click", () => openEditModal(b.dataset.id)));
     container.querySelectorAll(".btn-remove").forEach(b =>
       b.addEventListener("click", () => remove(b.dataset.id)));
   }
@@ -686,6 +738,82 @@
     document.getElementById("btn-type-weekly").classList.remove("active");
     document.getElementById("weekly-target-row").style.display = "none";
   }
+
+  // ── Edit modal ───────────────────────────────
+  let editingId = null;
+  let editGoalType = "daily";
+
+  document.getElementById("edit-btn-type-daily").addEventListener("click", () => {
+    editGoalType = "daily";
+    document.getElementById("edit-btn-type-daily").classList.add("active");
+    document.getElementById("edit-btn-type-weekly").classList.remove("active");
+    document.getElementById("edit-weekly-target-row").style.display = "none";
+  });
+  document.getElementById("edit-btn-type-weekly").addEventListener("click", () => {
+    editGoalType = "weekly";
+    document.getElementById("edit-btn-type-weekly").classList.add("active");
+    document.getElementById("edit-btn-type-daily").classList.remove("active");
+    document.getElementById("edit-weekly-target-row").style.display = "block";
+  });
+
+  async function openEditModal(id) {
+    const m = state.members.find(x => x.id === id);
+    if (!m) return;
+    if (!(await verifyMember(m, "edit them"))) return;
+    editingId = id;
+    editGoalType = m.goalType || "daily";
+    document.getElementById("edit-inp-goal").value = m.goal;
+    document.getElementById("edit-inp-weekly-target").value = m.weeklyTarget || "";
+    // Set toggle state
+    if (editGoalType === "weekly") {
+      document.getElementById("edit-btn-type-weekly").classList.add("active");
+      document.getElementById("edit-btn-type-daily").classList.remove("active");
+      document.getElementById("edit-weekly-target-row").style.display = "block";
+    } else {
+      document.getElementById("edit-btn-type-daily").classList.add("active");
+      document.getElementById("edit-btn-type-weekly").classList.remove("active");
+      document.getElementById("edit-weekly-target-row").style.display = "none";
+    }
+    document.getElementById("edit-modal").style.display = "flex";
+    busy = true;
+  }
+
+  document.getElementById("edit-btn-cancel").addEventListener("click", () => {
+    document.getElementById("edit-modal").style.display = "none";
+    editingId = null;
+    busy = false;
+  });
+
+  document.getElementById("edit-btn-save").addEventListener("click", async () => {
+    const goal = document.getElementById("edit-inp-goal").value.trim();
+    if (!goal) { showToast("Goal can't be empty"); return; }
+    if (editGoalType === "weekly") {
+      const t = parseInt(document.getElementById("edit-inp-weekly-target").value, 10);
+      if (!t || t < 1 || t > 7) { showToast("Enter a weekly target between 1 and 7"); return; }
+    }
+    const id = editingId;
+    const newGoalType = editGoalType;
+    const newTarget = parseInt(document.getElementById("edit-inp-weekly-target").value, 10) || null;
+    document.getElementById("edit-modal").style.display = "none";
+    editingId = null;
+    busy = false;
+    const ok = await syncedUpdate(s => {
+      const t = s.members.find(x => x.id === id);
+      if (!t) return false;
+      t.goal = goal;
+      const wasWeekly = t.goalType === "weekly";
+      const nowWeekly = newGoalType === "weekly";
+      t.goalType = newGoalType;
+      if (nowWeekly) {
+        t.weeklyTarget = newTarget;
+        if (!wasWeekly) { t.weeklyCount = 0; t.streak = 0; }
+      } else {
+        if (wasWeekly) { t.weeklyCount = 0; t.streak = 0; }
+        delete t.weeklyTarget;
+      }
+    });
+    if (ok) showToast("Updated! 🦑");
+  });
 
   // ── Live auto-refresh ────────────────────────
   const POLL_MS = 30000; // re-check every 30s; lower = snappier but more API calls
