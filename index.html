@@ -646,7 +646,13 @@
     members.forEach(m => {
       const isShamed = shame && shame.id === m.id;
       const missed = m.missedThisWeek || 0;
-      const allDone = m.completedToday && (!m.goal2 || m.goal2.completedToday);
+
+      function goalDone(g) {
+        return g.goalType === "weekly"
+          ? (g.weeklyCount || 0) >= (g.weeklyTarget || 1)
+          : g.completedToday;
+      }
+      const allDone = goalDone(m) && (!m.goal2 || goalDone(m.goal2));
 
       function goalRowHtml(g, which) {
         const isW = g.goalType === "weekly";
@@ -660,9 +666,14 @@
           ? `<div class="card-missed" style="color:${wDone?"#34d399":wC>0?"#38bdf8":"#64748b"}">🗓️ ${wC}/${wT} this week${wDone?" ✓":""}</div>`
           : "";
         const ms2 = getMilestone(g.streak);
-        const inkBtn = g.completedToday
-          ? `<span class="inked-label" style="font-size:12px">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="${which}">un-ink</button>`
-          : `<button class="btn-ink" data-id="${m.id}" data-goal="${which}">Ink It! 🦑</button>`;
+        let inkBtn;
+        if (isW && wDone) {
+          inkBtn = `<span class="inked-label" style="font-size:12px">✓ Done!</span>`;
+        } else if (g.completedToday) {
+          inkBtn = `<span class="inked-label" style="font-size:12px">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="${which}">un-ink</button>`;
+        } else {
+          inkBtn = `<button class="btn-ink" data-id="${m.id}" data-goal="${which}">Ink It! 🦑</button>`;
+        }
         return `<div class="goal-row">
           <div class="goal-row-info">
             <div class="card-goal" style="margin-top:0">🎯 ${esc(g.text || g.goal || "")}
@@ -700,7 +711,7 @@
             </div>
           </div>`;
       } else {
-        // Single-goal layout (original)
+        // Single-goal layout
         const isWeekly = m.goalType === "weekly";
         const ms = getMilestone(m.streak);
         const wCount = m.weeklyCount || 0, wTarget = m.weeklyTarget || 1;
@@ -712,8 +723,16 @@
         const missedRow = isWeekly
           ? `<div class="card-missed" style="color:${wColor}">🗓️ ${wCount}/${wTarget} this week${wDone?" ✓":""}</div>`
           : `<div class="card-missed" style="color:${missed>0?"#f87171":"#94a3b8"}">${missed>0?`💀 ${missed} miss${missed===1?"":"es"} this week`:"✨ No misses this week"}</div>`;
+        let actionBtn;
+        if (isWeekly && wDone) {
+          actionBtn = `<span class="inked-label">✓ Done!</span>`;
+        } else if (m.completedToday) {
+          actionBtn = `<span class="inked-label">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="primary">un-ink</button>`;
+        } else {
+          actionBtn = `<button class="btn-ink" data-id="${m.id}" data-goal="primary">Ink It! 🦑</button>`;
+        }
         card.innerHTML = `
-          <div class="card-icon">${m.completedToday?"✅":(isShamed?"🪣":(isWeekly?"🗓️":"🦑"))}</div>
+          <div class="card-icon">${allDone?"✅":(isShamed?"🪣":(isWeekly?"🗓️":"🦑"))}</div>
           <div class="card-info">
             <div class="card-name-row">
               <span class="card-name">${esc(m.name)}</span>
@@ -726,9 +745,7 @@
             ${missedRow}
           </div>
           <div class="card-actions">
-            ${m.completedToday
-              ?`<span class="inked-label">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="primary">un-ink</button>`
-              :`<button class="btn-ink" data-id="${m.id}" data-goal="primary">Ink It! 🦑</button>`}
+            ${actionBtn}
             <button class="btn-edit" data-id="${m.id}">edit</button>
             <button class="btn-remove" data-id="${m.id}">remove</button>
           </div>`;
