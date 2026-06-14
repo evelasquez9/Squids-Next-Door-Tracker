@@ -514,9 +514,11 @@
       s.members = s.members.map(m => {
         const r1 = dailyResetGoal(m);
         const r2 = m.goal2 ? dailyResetGoal(m.goal2) : null;
+        // Cap at 1 miss per day regardless of how many goals were missed
+        const missedToday = (r1.missed + (r2 ? r2.missed : 0)) > 0 ? 1 : 0;
         return {
           ...m, ...r1.goal,
-          missedThisWeek: (m.missedThisWeek || 0) + r1.missed + (r2 ? r2.missed : 0),
+          missedThisWeek: (m.missedThisWeek || 0) + missedToday,
           ...(r2 ? { goal2: r2.goal } : {}),
         };
       });
