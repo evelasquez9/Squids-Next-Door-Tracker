@@ -545,16 +545,13 @@
     return s;
   }
 
-  function getSquidOfShame(members) {
-    // Weekly members only show up in shame if they failed last week (missedThisWeek=1)
-    // Daily members show up as soon as they accumulate any misses this week
+  function getSquidsOfShame(members) {
     const candidates = members.filter(m => (m.missedThisWeek || 0) > 0);
-    if (!candidates.length) return null;
-    return candidates.reduce((worst, m) => {
-      if ((m.missedThisWeek || 0) > (worst.missedThisWeek || 0)) return m;
-      if ((m.missedThisWeek || 0) === (worst.missedThisWeek || 0) && m.streak < worst.streak) return m;
-      return worst;
-    });
+    if (!candidates.length) return [];
+    const max = Math.max(...candidates.map(m => m.missedThisWeek || 0));
+    const topMissers = candidates.filter(m => (m.missedThisWeek || 0) === max);
+    const minStreak = Math.min(...topMissers.map(m => m.streak || 0));
+    return topMissers.filter(m => (m.streak || 0) === minStreak);
   }
 
   // Re-fetch latest state, apply a change to it, then save.
@@ -626,19 +623,18 @@
     document.getElementById("empty-msg").style.display = total === 0 ? "block" : "none";
     document.getElementById("legend").style.display = total > 0 ? "block" : "none";
 
-    // Squid of Shame banner
-    const shame = getSquidOfShame(members);
+    // Squid(s) of Shame banner
+    const shameList = getSquidsOfShame(members);
     const shameBanner = document.getElementById("shame-banner");
-    if (shame) {
+    if (shameList.length > 0) {
       shameBanner.style.display = "block";
-      const isWeekly = shame.goalType === "weekly";
-      const shameDetail = isWeekly
-        ? `Only hit ${shame.weeklyCount || 0}/${shame.weeklyTarget || 1} this week — step it up!`
-        : `Missed ${shame.missedThisWeek} day${shame.missedThisWeek === 1 ? "" : "s"} this week — step it up!`;
+      const missCount = shameList[0].missedThisWeek;
+      const multi = shameList.length > 1;
+      const names = shameList.map(s => esc(s.name)).join(", ");
       shameBanner.innerHTML = `
-        <div class="shame-title">🪣 Squid of Shame — This Week</div>
-        <div class="shame-name">🦑 ${esc(shame.name)} 🦑</div>
-        <div class="shame-detail">${shameDetail}</div>`;
+        <div class="shame-title">🪣 Squid${multi ? "s" : ""} of Shame — This Week</div>
+        <div class="shame-name">🦑 ${names} 🦑</div>
+        <div class="shame-detail">Missed ${missCount} day${missCount === 1 ? "" : "s"} this week — step it up!</div>`;
     } else {
       shameBanner.style.display = "none";
     }
@@ -646,7 +642,7 @@
     const container = document.getElementById("cards");
     container.innerHTML = "";
     members.forEach(m => {
-      const isShamed = shame && shame.id === m.id;
+      const isShamed = shameList.some(s => s.id === m.id);
       const missed = m.missedThisWeek || 0;
 
       function goalDone(g) {
