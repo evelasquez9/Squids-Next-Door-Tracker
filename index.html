@@ -858,16 +858,20 @@
 
     const lx = ox - cr.left, ly = oy - cr.top;
 
-    // Main splash blob — scale from 0 using JS-driven animation (Safari safe)
+    // Main splash blob — floods the card then fades out
     const splash = document.createElement("div");
     splash.style.cssText = `position:absolute;border-radius:50%;` +
       `width:${size}px;height:${size}px;left:${lx - size/2}px;top:${ly - size/2}px;` +
-      `background:radial-gradient(circle,rgba(2,6,23,0.92) 0%,rgba(15,23,42,0.65) 45%,transparent 70%);` +
-      `transform:scale(0);transition:transform 0.8s cubic-bezier(0.22,1,0.36,1),opacity 0.7s ease 0.2s`;
+      `background:radial-gradient(circle,rgba(2,6,23,0.95) 0%,rgba(15,23,42,0.75) 45%,transparent 70%);` +
+      `transform:scale(0);opacity:1;transition:transform 0.5s cubic-bezier(0.22,1,0.36,1)`;
     layer.appendChild(splash);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       splash.style.transform = "scale(1)";
-      splash.style.opacity = "0";
+      // After flood completes, fade out
+      setTimeout(() => {
+        splash.style.transition = "opacity 0.4s ease";
+        splash.style.opacity = "0";
+      }, 450);
     }));
 
     // Ink droplets — animate position via JS to avoid CSS custom property issues on iOS
