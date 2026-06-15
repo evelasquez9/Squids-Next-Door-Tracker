@@ -765,9 +765,9 @@
     });
 
     container.querySelectorAll(".btn-ink").forEach(b =>
-      b.addEventListener("click", () => checkin(b.dataset.id, b.dataset.goal || "primary")));
+      b.addEventListener("click", () => checkin(b.dataset.id, b.dataset.goal || "primary", b)));
     container.querySelectorAll(".btn-unink").forEach(b =>
-      b.addEventListener("click", () => uncheckin(b.dataset.id, b.dataset.goal || "primary")));
+      b.addEventListener("click", () => uncheckin(b.dataset.id, b.dataset.goal || "primary", b)));
     container.querySelectorAll(".btn-edit").forEach(b =>
       b.addEventListener("click", () => openEditModal(b.dataset.id)));
     container.querySelectorAll(".btn-remove").forEach(b =>
@@ -775,12 +775,27 @@
   }
 
   // ── Actions ──────────────────────────────────
-  async function checkin(id, which = "primary") {
+  function setSavingState(btn, saving) {
+    if (!btn) return;
+    if (saving) {
+      btn.dataset.origText = btn.textContent;
+      btn.textContent = "Saving…";
+      btn.disabled = true;
+      btn.style.opacity = "0.7";
+    } else {
+      btn.textContent = btn.dataset.origText || btn.textContent;
+      btn.disabled = false;
+      btn.style.opacity = "";
+    }
+  }
+
+  async function checkin(id, which = "primary", btn = null) {
     const m = state.members.find(x => x.id === id);
     if (!m) return;
     const g = which === "secondary" ? m.goal2 : m;
     if (!g || g.completedToday) return;
     if (!(await verifyMember(m, "ink it"))) return;
+    setSavingState(btn, true);
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
       if (!t) return false;
@@ -790,15 +805,17 @@
       if (tg.goalType === "weekly") { tg.weeklyCount = (tg.weeklyCount || 0) + 1; }
       else { tg.streak = (tg.streak || 0) + 1; }
     });
+    setSavingState(btn, false);
     if (ok) showToast("Inked! 🦑");
   }
 
-  async function uncheckin(id, which = "primary") {
+  async function uncheckin(id, which = "primary", btn = null) {
     const m = state.members.find(x => x.id === id);
     if (!m) return;
     const g = which === "secondary" ? m.goal2 : m;
     if (!g || !g.completedToday) return;
     if (!(await verifyMember(m, "un-ink it"))) return;
+    setSavingState(btn, true);
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
       if (!t) return false;
@@ -808,6 +825,7 @@
       if (tg.goalType === "weekly") { tg.weeklyCount = Math.max(0, (tg.weeklyCount || 0) - 1); }
       else { tg.streak = Math.max(0, tg.streak - 1); }
     });
+    setSavingState(btn, false);
     if (ok) showToast("Un-inked 💧");
   }
 
