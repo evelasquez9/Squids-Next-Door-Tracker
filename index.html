@@ -559,18 +559,30 @@
   // The mutator can return false to abort (no save happens).
   async function syncedUpdate(mutator) {
     busy = true;
+    const maxRetries = 3;
+    let attempt = 0;
     try {
-      const fresh = normalize(await fetchState());
-      if (mutator(fresh) === false) {
-        // Still adopt the fresh data so the UI reflects reality
-        state = fresh;
-        render();
-        return false;
+      while (attempt < maxRetries) {
+        try {
+          // Random jitter (0–300ms) before push to reduce collision window
+          await new Promise(r => setTimeout(r, Math.random() * 300));
+          const fresh = normalize(await fetchState());
+          if (mutator(fresh) === false) {
+            state = fresh;
+            render();
+            return false;
+          }
+          state = fresh;
+          render();
+          await pushState(state);
+          return true;
+        } catch (e) {
+          attempt++;
+          if (attempt >= maxRetries) throw e;
+          // Exponential backoff: 500ms, 1000ms
+          await new Promise(r => setTimeout(r, 500 * attempt));
+        }
       }
-      state = fresh;
-      render();
-      await pushState(state);
-      return true;
     } catch (e) {
       showToast("⚠️ " + (e.message || "Sync failed — refresh and try again"));
       return false;
