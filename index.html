@@ -77,6 +77,30 @@
     margin-bottom: 14px; display: flex;
     align-items: center; gap: 14px;
     transition: all 0.3s ease;
+    position: relative; overflow: hidden;
+  }
+  /* Ink splash overlay */
+  .ink-splash {
+    position: absolute; border-radius: 50%;
+    background: radial-gradient(circle, rgba(2,6,23,0.85) 0%, rgba(15,23,42,0.6) 50%, transparent 75%);
+    transform: scale(0); pointer-events: none;
+    animation: inkSpread 0.6s cubic-bezier(0.22,1,0.36,1) forwards;
+    z-index: 10;
+  }
+  @keyframes inkSpread {
+    0%   { transform: scale(0); opacity: 1; }
+    60%  { opacity: 0.85; }
+    100% { transform: scale(4); opacity: 0; }
+  }
+  .ink-drop {
+    position: absolute; border-radius: 50%;
+    background: rgba(2,6,23,0.7);
+    pointer-events: none; animation: inkDrop 0.5s ease-out forwards;
+    z-index: 10;
+  }
+  @keyframes inkDrop {
+    0%   { transform: scale(0) translate(0,0); opacity: 0.9; }
+    100% { transform: scale(1) translate(var(--dx), var(--dy)); opacity: 0; }
   }
   .card.done {
     background: linear-gradient(135deg, rgba(6,95,70,0.45), rgba(4,120,87,0.25));
@@ -818,6 +842,37 @@
   }
 
   // ── Actions ──────────────────────────────────
+  function inkSplash(btn) {
+    const card = btn.closest(".card");
+    if (!card) return;
+    const cr = card.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
+    // Splash origin = center of the ink button relative to card
+    const x = br.left - cr.left + br.width / 2;
+    const y = br.top  - cr.top  + br.height / 2;
+    const size = Math.max(cr.width, cr.height) * 2;
+
+    const splash = document.createElement("div");
+    splash.className = "ink-splash";
+    splash.style.cssText = `width:${size}px;height:${size}px;left:${x - size/2}px;top:${y - size/2}px`;
+    card.appendChild(splash);
+    splash.addEventListener("animationend", () => splash.remove());
+
+    // A few random ink droplets scattered around
+    for (let i = 0; i < 6; i++) {
+      const drop = document.createElement("div");
+      const s = 6 + Math.random() * 10;
+      const angle = Math.random() * 2 * Math.PI;
+      const dist = 30 + Math.random() * 60;
+      drop.className = "ink-drop";
+      drop.style.cssText = `width:${s}px;height:${s}px;left:${x}px;top:${y}px;` +
+        `--dx:${Math.cos(angle)*dist}px;--dy:${Math.sin(angle)*dist}px;` +
+        `animation-delay:${Math.random()*0.1}s`;
+      card.appendChild(drop);
+      drop.addEventListener("animationend", () => drop.remove());
+    }
+  }
+
   function setSavingState(btn, saving) {
     if (!btn) return;
     if (saving) {
@@ -838,6 +893,7 @@
     const g = which === "secondary" ? m.goal2 : m;
     if (!g || g.completedToday) return;
     if (!(await verifyMember(m, "ink it"))) return;
+    if (btn) inkSplash(btn);
     setSavingState(btn, true);
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
