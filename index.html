@@ -846,35 +846,48 @@
     if (!card) return;
     const cr = card.getBoundingClientRect();
     const br = btn ? btn.getBoundingClientRect() : cr;
-    // Origin = center of button, in viewport coords
     const ox = br.left + br.width / 2;
     const oy = br.top  + br.height / 2;
     const size = Math.max(cr.width, cr.height) * 2.5;
 
-    // Layer over the card using fixed positioning so it survives DOM re-renders
     const layer = document.createElement("div");
     layer.style.cssText = `position:fixed;left:${cr.left}px;top:${cr.top}px;` +
       `width:${cr.width}px;height:${cr.height}px;border-radius:16px;overflow:hidden;` +
-      `pointer-events:none;z-index:999`;
+      `pointer-events:none;z-index:9999`;
     document.body.appendChild(layer);
 
     const lx = ox - cr.left, ly = oy - cr.top;
 
+    // Main splash blob — scale from 0 using JS-driven animation (Safari safe)
     const splash = document.createElement("div");
-    splash.className = "ink-splash";
-    splash.style.cssText = `width:${size}px;height:${size}px;left:${lx - size/2}px;top:${ly - size/2}px`;
+    splash.style.cssText = `position:absolute;border-radius:50%;` +
+      `width:${size}px;height:${size}px;left:${lx - size/2}px;top:${ly - size/2}px;` +
+      `background:radial-gradient(circle,rgba(2,6,23,0.9) 0%,rgba(15,23,42,0.5) 50%,transparent 75%);` +
+      `transform:scale(0);transition:transform 0.5s cubic-bezier(0.22,1,0.36,1),opacity 0.5s ease`;
     layer.appendChild(splash);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      splash.style.transform = "scale(1)";
+      splash.style.opacity = "0";
+    }));
 
-    for (let i = 0; i < 6; i++) {
-      const drop = document.createElement("div");
-      const s = 6 + Math.random() * 10;
+    // Ink droplets — animate position via JS to avoid CSS custom property issues on iOS
+    for (let i = 0; i < 7; i++) {
+      const s = 5 + Math.random() * 9;
       const angle = Math.random() * 2 * Math.PI;
-      const dist = 30 + Math.random() * 60;
-      drop.className = "ink-drop";
-      drop.style.cssText = `width:${s}px;height:${s}px;left:${lx}px;top:${ly}px;` +
-        `--dx:${Math.cos(angle)*dist}px;--dy:${Math.sin(angle)*dist}px;` +
-        `animation-delay:${Math.random()*0.1}s`;
+      const dist = 25 + Math.random() * 55;
+      const tx = lx + Math.cos(angle) * dist;
+      const ty = ly + Math.sin(angle) * dist;
+      const drop = document.createElement("div");
+      drop.style.cssText = `position:absolute;border-radius:50%;` +
+        `width:${s}px;height:${s}px;left:${lx - s/2}px;top:${ly - s/2}px;` +
+        `background:rgba(2,6,23,0.75);` +
+        `transition:transform ${0.3 + Math.random()*0.2}s ease-out,opacity 0.4s ease;` +
+        `transition-delay:${Math.random()*0.08}s`;
       layer.appendChild(drop);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        drop.style.transform = `translate(${tx - lx}px,${ty - ly}px) scale(0.3)`;
+        drop.style.opacity = "0";
+      }));
     }
 
     setTimeout(() => layer.remove(), 700);
