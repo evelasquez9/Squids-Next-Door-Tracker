@@ -842,35 +842,42 @@
   }
 
   // ── Actions ──────────────────────────────────
-  function inkSplash(btn) {
-    const card = btn.closest(".card");
+  function inkSplash(btn, card) {
     if (!card) return;
     const cr = card.getBoundingClientRect();
-    const br = btn.getBoundingClientRect();
-    // Splash origin = center of the ink button relative to card
-    const x = br.left - cr.left + br.width / 2;
-    const y = br.top  - cr.top  + br.height / 2;
-    const size = Math.max(cr.width, cr.height) * 2;
+    const br = btn ? btn.getBoundingClientRect() : cr;
+    // Origin = center of button, in viewport coords
+    const ox = br.left + br.width / 2;
+    const oy = br.top  + br.height / 2;
+    const size = Math.max(cr.width, cr.height) * 2.5;
+
+    // Layer over the card using fixed positioning so it survives DOM re-renders
+    const layer = document.createElement("div");
+    layer.style.cssText = `position:fixed;left:${cr.left}px;top:${cr.top}px;` +
+      `width:${cr.width}px;height:${cr.height}px;border-radius:16px;overflow:hidden;` +
+      `pointer-events:none;z-index:999`;
+    document.body.appendChild(layer);
+
+    const lx = ox - cr.left, ly = oy - cr.top;
 
     const splash = document.createElement("div");
     splash.className = "ink-splash";
-    splash.style.cssText = `width:${size}px;height:${size}px;left:${x - size/2}px;top:${y - size/2}px`;
-    card.appendChild(splash);
-    splash.addEventListener("animationend", () => splash.remove());
+    splash.style.cssText = `width:${size}px;height:${size}px;left:${lx - size/2}px;top:${ly - size/2}px`;
+    layer.appendChild(splash);
 
-    // A few random ink droplets scattered around
     for (let i = 0; i < 6; i++) {
       const drop = document.createElement("div");
       const s = 6 + Math.random() * 10;
       const angle = Math.random() * 2 * Math.PI;
       const dist = 30 + Math.random() * 60;
       drop.className = "ink-drop";
-      drop.style.cssText = `width:${s}px;height:${s}px;left:${x}px;top:${y}px;` +
+      drop.style.cssText = `width:${s}px;height:${s}px;left:${lx}px;top:${ly}px;` +
         `--dx:${Math.cos(angle)*dist}px;--dy:${Math.sin(angle)*dist}px;` +
         `animation-delay:${Math.random()*0.1}s`;
-      card.appendChild(drop);
-      drop.addEventListener("animationend", () => drop.remove());
+      layer.appendChild(drop);
     }
+
+    setTimeout(() => layer.remove(), 700);
   }
 
   function setSavingState(btn, saving) {
@@ -893,7 +900,9 @@
     const g = which === "secondary" ? m.goal2 : m;
     if (!g || g.completedToday) return;
     if (!(await verifyMember(m, "ink it"))) return;
-    if (btn) inkSplash(btn);
+    // Capture card reference before re-render replaces the DOM
+    const card = btn ? btn.closest(".card") : null;
+    if (card) inkSplash(btn, card);
     setSavingState(btn, true);
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
