@@ -623,10 +623,11 @@
     document.getElementById("empty-msg").style.display = total === 0 ? "block" : "none";
     document.getElementById("legend").style.display = total > 0 ? "block" : "none";
 
-    // Squid(s) of Shame banner
+    // Squid(s) of Shame banner — only show on Sundays (ET)
     const shameList = getSquidsOfShame(members);
     const shameBanner = document.getElementById("shame-banner");
-    if (shameList.length > 0) {
+    const isSunday = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "long" }) === "Sunday";
+    if (shameList.length > 0 && isSunday) {
       shameBanner.style.display = "block";
       const missCount = shameList[0].missedThisWeek;
       const multi = shameList.length > 1;
