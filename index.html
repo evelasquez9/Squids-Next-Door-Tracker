@@ -809,7 +809,7 @@
           actionBtn = `<button class="btn-ink" data-id="${m.id}" data-goal="primary">Ink It! 🦑</button>`;
         }
         card.innerHTML = `
-          <div class="card-icon">${allDone?"✅":(isShamed?"🪣":(isWeekly?"🗓️":"🦑"))}</div>
+          <div class="card-icon">${allDone?"✅":(isShamed?"🪣":"🦑")}</div>
           <div class="card-info">
             <div class="card-name-row">
               <span class="card-name">${esc(m.name)}</span>
