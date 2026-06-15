@@ -848,7 +848,7 @@
     const br = btn ? btn.getBoundingClientRect() : cr;
     const ox = br.left + br.width / 2;
     const oy = br.top  + br.height / 2;
-    const size = Math.max(cr.width, cr.height) * 2.5;
+    const size = Math.max(cr.width, cr.height) * 5;
 
     const layer = document.createElement("div");
     layer.style.cssText = `position:fixed;left:${cr.left}px;top:${cr.top}px;` +
@@ -858,39 +858,43 @@
 
     const lx = ox - cr.left, ly = oy - cr.top;
 
-    // Main splash blob — scale from 0 using JS-driven animation (Safari safe)
+    // Main splash blob — floods the card then fades out
     const splash = document.createElement("div");
     splash.style.cssText = `position:absolute;border-radius:50%;` +
       `width:${size}px;height:${size}px;left:${lx - size/2}px;top:${ly - size/2}px;` +
-      `background:radial-gradient(circle,rgba(2,6,23,0.9) 0%,rgba(15,23,42,0.5) 50%,transparent 75%);` +
-      `transform:scale(0);transition:transform 0.5s cubic-bezier(0.22,1,0.36,1),opacity 0.5s ease`;
+      `background:radial-gradient(circle,rgba(2,6,23,0.95) 0%,rgba(15,23,42,0.75) 45%,transparent 70%);` +
+      `transform:scale(0);opacity:1;transition:transform 0.5s cubic-bezier(0.22,1,0.36,1)`;
     layer.appendChild(splash);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       splash.style.transform = "scale(1)";
-      splash.style.opacity = "0";
+      // After flood completes, fade out
+      setTimeout(() => {
+        splash.style.transition = "opacity 0.4s ease";
+        splash.style.opacity = "0";
+      }, 450);
     }));
 
     // Ink droplets — animate position via JS to avoid CSS custom property issues on iOS
-    for (let i = 0; i < 7; i++) {
-      const s = 5 + Math.random() * 9;
+    for (let i = 0; i < 10; i++) {
+      const s = 8 + Math.random() * 14;
       const angle = Math.random() * 2 * Math.PI;
-      const dist = 25 + Math.random() * 55;
+      const dist = 40 + Math.random() * 90;
       const tx = lx + Math.cos(angle) * dist;
       const ty = ly + Math.sin(angle) * dist;
       const drop = document.createElement("div");
       drop.style.cssText = `position:absolute;border-radius:50%;` +
         `width:${s}px;height:${s}px;left:${lx - s/2}px;top:${ly - s/2}px;` +
-        `background:rgba(2,6,23,0.75);` +
-        `transition:transform ${0.3 + Math.random()*0.2}s ease-out,opacity 0.4s ease;` +
-        `transition-delay:${Math.random()*0.08}s`;
+        `background:rgba(2,6,23,0.85);` +
+        `transition:transform ${0.5 + Math.random()*0.3}s ease-out,opacity 0.5s ease;` +
+        `transition-delay:${Math.random()*0.1}s`;
       layer.appendChild(drop);
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        drop.style.transform = `translate(${tx - lx}px,${ty - ly}px) scale(0.3)`;
+        drop.style.transform = `translate(${tx - lx}px,${ty - ly}px) scale(0.2)`;
         drop.style.opacity = "0";
       }));
     }
 
-    setTimeout(() => layer.remove(), 700);
+    setTimeout(() => layer.remove(), 1000);
   }
 
   function setSavingState(btn, saving) {
