@@ -606,7 +606,7 @@
   // The mutator can return false to abort (no save happens).
   async function syncedUpdate(mutator) {
     busy = true;
-    const maxRetries = 3;
+    const maxRetries = 5;
     let attempt = 0;
     try {
       while (attempt < maxRetries) {
@@ -614,11 +614,21 @@
           // Random jitter (0–300ms) before push to reduce collision window
           await new Promise(r => setTimeout(r, Math.random() * 300));
           const fresh = normalize(await fetchState());
+          const baseVersion = fresh.version || 0;
           if (mutator(fresh) === false) {
             state = fresh;
             render();
             return false;
           }
+          // Verify nobody else wrote to the bin between our fetch and now —
+          // if they did, retry the whole mutate against their newer data
+          // instead of blindly overwriting it.
+          const check = await fetchState();
+          if ((check.version || 0) !== baseVersion) {
+            attempt++;
+            continue;
+          }
+          fresh.version = baseVersion + 1;
           state = fresh;
           render();
           await pushState(state);
@@ -626,10 +636,11 @@
         } catch (e) {
           attempt++;
           if (attempt >= maxRetries) throw e;
-          // Exponential backoff: 500ms, 1000ms
+          // Exponential backoff: 500ms, 1000ms, 1500ms…
           await new Promise(r => setTimeout(r, 500 * attempt));
         }
       }
+      throw new Error("Too many sync conflicts — try again");
     } catch (e) {
       showToast("⚠️ " + (e.message || "Sync failed — refresh and try again"));
       return false;
