@@ -648,10 +648,15 @@
     }
     try {
       const fresh = await fetchState();
-      const needsReset = fresh.lastReset !== today();
-      state = normalize(fresh);
-      if (needsReset) await pushState(state);
-      render();
+      const needsReset = fresh.lastReset !== today() || fresh.weekStart !== weekStart();
+      if (needsReset) {
+        // Re-fetch right before pushing (via syncedUpdate) so a concurrent
+        // ink from another device isn't clobbered by a stale reset push.
+        await syncedUpdate(s => { normalize(s); });
+      } else {
+        state = normalize(fresh);
+        render();
+      }
     } catch (e) {
       const b = document.getElementById("setup-banner");
       b.innerHTML = "⚠️ <strong>Connection error:</strong> " + esc(String(e.message || e));
@@ -1219,7 +1224,14 @@
     // Skip if the user is busy typing, entering a PIN, or a save is in flight
     if (formOpen || busy || !state) return;
     try {
-      const fresh = normalize(await fetchState());
+      const raw = await fetchState();
+      const needsReset = raw.lastReset !== today() || raw.weekStart !== weekStart();
+      if (needsReset) {
+        // Persist the reset safely (re-fetches right before pushing)
+        await syncedUpdate(s => { normalize(s); });
+        return;
+      }
+      const fresh = normalize(raw);
       // Only re-render if something actually changed (avoids flicker)
       if (JSON.stringify(fresh) !== JSON.stringify(state)) {
         state = fresh;
