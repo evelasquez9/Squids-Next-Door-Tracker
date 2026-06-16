@@ -432,6 +432,11 @@
 
 <script>
   // ─────────────────────────────────────────────
+  //  Bump this string every time you ship a code change — open tabs will
+  //  detect the mismatch and auto-refresh within a couple minutes.
+  // ─────────────────────────────────────────────
+  const APP_VERSION = "2026-06-16.1";
+  // ─────────────────────────────────────────────
   //  JSONBin credentials (must be wrapped in quotes!)
   // ─────────────────────────────────────────────
   const ACCESS_KEY = "$2a$10$MI0ASTi13LBCB2SEOWFhsukI43QldC8frLt6ZmWvQ84B45i4TXpya";
@@ -1263,12 +1268,30 @@
     return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   }
 
+  // Detect when a newer version of this page has been deployed and
+  // auto-refresh so people don't need to manually close/reopen the tab.
+  async function checkForAppUpdate() {
+    if (formOpen || busy) return; // don't yank the page out from under an edit
+    try {
+      const res = await fetch(location.pathname + "?_=" + Date.now(), { cache: "no-store" });
+      const text = await res.text();
+      const match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+      if (match && match[1] !== APP_VERSION) {
+        showToast("🔄 Updating to the latest version…");
+        setTimeout(() => location.reload(), 1500);
+      }
+    } catch (e) {
+      // Stay quiet — the next check will retry
+    }
+  }
+
   load();
   setInterval(poll, POLL_MS);
+  setInterval(checkForAppUpdate, 120000); // check for new code every 2 min
 
   // Also refresh the moment you return to the tab after it was hidden
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) poll();
+    if (!document.hidden) { poll(); checkForAppUpdate(); }
   });
 </script>
 </body>
