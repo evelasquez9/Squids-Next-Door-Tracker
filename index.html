@@ -763,7 +763,8 @@
 
     const container = document.getElementById("cards");
     container.innerHTML = "";
-    const sorted = [...members].sort((a, b) => (b.streak || 0) - (a.streak || 0));
+    const totalStreak = m => (m.streak || 0) + (m.goal2 ? (m.goal2.streak || 0) : 0);
+    const sorted = [...members].sort((a, b) => totalStreak(b) - totalStreak(a));
     sorted.forEach((m, rankIdx) => {
       const isShamed = shameList.some(s => s.id === m.id);
       const missed = m.missedThisWeek || 0;
@@ -821,7 +822,7 @@
 
       const card = document.createElement("div");
       card.className = `card ${allDone ? "done" : "pending"}`;
-      const streak = m.streak || 0;
+      const streak = totalStreak(m);
       const glowAlpha = Math.min(0.15 + streak * 0.018, 0.7).toFixed(2);
       const glowSize = Math.min(18 + streak * 3, 60);
       const glowColor = streak >= 30 ? `255,215,0` : streak >= 14 ? `192,132,252` : streak >= 7 ? `52,211,153` : `125,211,252`;
