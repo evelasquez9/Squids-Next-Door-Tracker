@@ -812,7 +812,10 @@
       }
 
       const yDay = yesterdayShort();
-      const showInkYesterday = WEEK_DAYS.includes(yDay) && !(m.weekLog || []).includes(yDay);
+      const showInkYesterday = WEEK_DAYS.includes(yDay) && (
+        !(m.weekLog || []).includes(yDay) ||
+        (m.goal2 && !(m.goal2.weekLog || []).includes(yDay))
+      );
       const inkYesterdayBtn = showInkYesterday
         ? `<button class="btn-ink-yesterday" data-id="${m.id}" title="Forgot to log yesterday?">+yesterday</button>`
         : "";
@@ -1021,20 +1024,32 @@
     const m = state.members.find(x => x.id === id);
     if (!m) return;
     const yDay = yesterdayShort();
-    // Only show/run if yesterday is within this week (Mon is weekStart; Sun would be last week)
     if (!WEEK_DAYS.includes(yDay)) return;
-    if ((m.weekLog || []).includes(yDay)) return; // already inked
+    // Show button if yesterday is missing from primary OR goal2
+    const primaryMissed = !(m.weekLog || []).includes(yDay);
+    const goal2Missed = m.goal2 && !(m.goal2.weekLog || []).includes(yDay);
+    if (!primaryMissed && !goal2Missed) return;
     if (!(await verifyMember(m, "ink yesterday"))) return;
     setSavingState(btn, true);
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
       if (!t) return false;
       const y = yesterdayShort();
-      if ((t.weekLog || []).includes(y)) return false;
+      // Fill primary weekLog
       if (!Array.isArray(t.weekLog)) t.weekLog = [];
-      t.weekLog.push(y);
-      // Restore streak and remove the miss
-      if (t.goalType !== "weekly") t.streak = (t.streak || 0) + 1;
+      if (!t.weekLog.includes(y)) {
+        t.weekLog.push(y);
+        if (t.goalType !== "weekly") t.streak = (t.streak || 0) + 1;
+      }
+      // Fill goal2 weekLog
+      if (t.goal2) {
+        if (!Array.isArray(t.goal2.weekLog)) t.goal2.weekLog = [];
+        if (!t.goal2.weekLog.includes(y)) {
+          t.goal2.weekLog.push(y);
+          if (t.goal2.goalType !== "weekly") t.goal2.streak = (t.goal2.streak || 0) + 1;
+        }
+      }
+      // Remove the miss (capped at 1 per day, so remove 1)
       t.missedThisWeek = Math.max(0, (t.missedThisWeek || 0) - 1);
     });
     setSavingState(btn, false);
