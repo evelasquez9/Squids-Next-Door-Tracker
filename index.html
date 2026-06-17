@@ -137,6 +137,13 @@
     font-family: Georgia, serif;
   }
   .btn-unink:hover { background: rgba(125,211,252,0.2); color: #bae6fd; }
+  .btn-ink-yesterday {
+    background: rgba(251,191,36,0.12); color: #fbbf24;
+    border: 1px solid rgba(251,191,36,0.35); border-radius: 8px;
+    font-size: 11px; cursor: pointer; padding: 4px 10px;
+    font-family: Georgia, serif;
+  }
+  .btn-ink-yesterday:hover { background: rgba(251,191,36,0.22); color: #fcd34d; }
   .btn-remove {
     background: rgba(220,38,38,0.12); color: #fca5a5;
     border: 1px solid rgba(220,38,38,0.35); border-radius: 8px;
@@ -465,6 +472,13 @@
   // Short day name for weekLog entries, e.g. "Mon", "Tue" … in ET
   const todayShort = () =>
     new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" }).format(new Date());
+
+  // Short day name for yesterday in ET
+  const yesterdayShort = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short" }).format(d);
+  };
 
   // ISO date of the most recent Monday in ET — used to reset weekly miss counts
   const weekStart = () => {
@@ -797,6 +811,12 @@
         </div>`;
       }
 
+      const yDay = yesterdayShort();
+      const showInkYesterday = WEEK_DAYS.includes(yDay) && !(m.weekLog || []).includes(yDay);
+      const inkYesterdayBtn = showInkYesterday
+        ? `<button class="btn-ink-yesterday" data-id="${m.id}" title="Forgot to log yesterday?">+yesterday</button>`
+        : "";
+
       const card = document.createElement("div");
       card.className = `card ${allDone ? "done" : "pending"}`;
 
@@ -816,6 +836,7 @@
             <div class="card-footer">
               <div class="card-missed" style="color:${missed>0?"#f87171":"#94a3b8"}">${missed>0?`💀 ${missed} miss${missed===1?"":"es"} this week`:"✨ No misses this week"}</div>
               <div class="card-footer-btns">
+                ${inkYesterdayBtn}
                 <button class="btn-edit" data-id="${m.id}">edit</button>
                 <button class="btn-remove" data-id="${m.id}">remove</button>
               </div>
@@ -858,6 +879,7 @@
           </div>
           <div class="card-actions">
             ${actionBtn}
+            ${inkYesterdayBtn}
             <button class="btn-edit" data-id="${m.id}">edit</button>
             <button class="btn-remove" data-id="${m.id}">remove</button>
           </div>`;
@@ -865,6 +887,8 @@
       container.appendChild(card);
     });
 
+    container.querySelectorAll(".btn-ink-yesterday").forEach(b =>
+      b.addEventListener("click", () => inkYesterday(b.dataset.id, b)));
     container.querySelectorAll(".btn-ink").forEach(b =>
       b.addEventListener("click", () => checkin(b.dataset.id, b.dataset.goal || "primary", b)));
     container.querySelectorAll(".btn-unink").forEach(b =>
@@ -993,7 +1017,29 @@
     if (ok) showToast("Un-inked 💧");
   }
 
-  async function remove(id) {
+  async function inkYesterday(id, btn = null) {
+    const m = state.members.find(x => x.id === id);
+    if (!m) return;
+    const yDay = yesterdayShort();
+    // Only show/run if yesterday is within this week (Mon is weekStart; Sun would be last week)
+    if (!WEEK_DAYS.includes(yDay)) return;
+    if ((m.weekLog || []).includes(yDay)) return; // already inked
+    if (!(await verifyMember(m, "ink yesterday"))) return;
+    setSavingState(btn, true);
+    const ok = await syncedUpdate(s => {
+      const t = s.members.find(x => x.id === id);
+      if (!t) return false;
+      const y = yesterdayShort();
+      if ((t.weekLog || []).includes(y)) return false;
+      if (!Array.isArray(t.weekLog)) t.weekLog = [];
+      t.weekLog.push(y);
+      // Restore streak and remove the miss
+      if (t.goalType !== "weekly") t.streak = (t.streak || 0) + 1;
+      t.missedThisWeek = Math.max(0, (t.missedThisWeek || 0) - 1);
+    });
+    setSavingState(btn, false);
+    if (ok) showToast("Yesterday inked! 🦑");
+  }
     const m = state.members.find(x => x.id === id);
     if (!m) return;
     if (!(await verifyMember(m, "remove them"))) return;
