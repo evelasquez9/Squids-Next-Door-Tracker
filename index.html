@@ -330,6 +330,10 @@
 </head>
 <body>
 
+<!-- Firebase compat SDK (exposes window.firebase as a global) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <!-- Wavy water background -->
 <div id="water-bg">
   <svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" width="100%" height="100%">
@@ -442,20 +446,22 @@
   //  Bump this string every time you ship a code change — open tabs will
   //  detect the mismatch and auto-refresh within a couple minutes.
   // ─────────────────────────────────────────────
-  const APP_VERSION = "2026-06-16.1";
+  const APP_VERSION = "2026-06-16.2";
   // ─────────────────────────────────────────────
-  //  JSONBin credentials (must be wrapped in quotes!)
+  //  Firebase configuration
   // ─────────────────────────────────────────────
-  const ACCESS_KEY = "$2a$10$MI0ASTi13LBCB2SEOWFhsukI43QldC8frLt6ZmWvQ84B45i4TXpya";
-  const BIN_ID  = "6a2b0d03f5f4af5e29e1aa55";
-  // ─────────────────────────────────────────────
-
-  const BASE = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-  const HEADERS = {
-    "Content-Type": "application/json",
-    "X-Access-Key": ACCESS_KEY,
-    "X-Bin-Versioning": "false",
+  const firebaseConfig = {
+    apiKey: "AIzaSyBG98SvPAZyHolKp80fJNTdN2WWgkgu5y8",
+    authDomain: "squids-next-door-tracker.firebaseapp.com",
+    projectId: "squids-next-door-tracker",
+    storageBucket: "squids-next-door-tracker.firebasestorage.app",
+    messagingSenderId: "676599622769",
+    appId: "1:676599622769:web:e3adb00e75fe0a2173ffd0"
   };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const stateDocRef = db.collection("state").doc("main");
+  // ─────────────────────────────────────────────
 
   const MILESTONES = [
     { days: 30, label: "30🦑 LEGEND", color: "#ffd700" },
@@ -540,15 +546,18 @@
 
   // ── Data sync ────────────────────────────────
   async function fetchState() {
-    const r = await fetch(BASE, { headers: HEADERS });
-    if (!r.ok) throw new Error("HTTP " + r.status + " from JSONBin — check that your Bin ID is correct and your Access Key has Read + Update permissions.");
-    const j = await r.json();
-    return j.record;
+    const snap = await stateDocRef.get();
+    if (!snap.exists) {
+      // First-time init
+      const initial = { members: [], lastReset: "", weekStart: "" };
+      await stateDocRef.set(initial);
+      return initial;
+    }
+    return snap.data();
   }
 
   async function pushState(s) {
-    const r = await fetch(BASE, { method: "PUT", headers: HEADERS, body: JSON.stringify(s) });
-    if (!r.ok) throw new Error("Save failed (HTTP " + r.status + ")");
+    await stateDocRef.set(s);
   }
 
   // Apply daily reset + defaults to a fetched state object
@@ -620,46 +629,33 @@
     return topMissers.filter(m => (m.streak || 0) === minStreak);
   }
 
-  // Re-fetch latest state, apply a change to it, then save.
-  // This shrinks the lost-update window from "since page load" to milliseconds.
+  // Apply a change to the Firestore document atomically using a transaction.
+  // The mutator receives the current (normalized) state and mutates it in place.
   // The mutator can return false to abort (no save happens).
   async function syncedUpdate(mutator) {
     busy = true;
-    const maxRetries = 5;
-    let attempt = 0;
     try {
-      while (attempt < maxRetries) {
-        try {
-          // Random jitter (0–300ms) before push to reduce collision window
-          await new Promise(r => setTimeout(r, Math.random() * 300));
-          const fresh = normalize(await fetchState());
-          const baseVersion = fresh.version || 0;
-          if (mutator(fresh) === false) {
-            state = fresh;
-            render();
-            return false;
-          }
-          // Verify nobody else wrote to the bin between our fetch and now —
-          // if they did, retry the whole mutate against their newer data
-          // instead of blindly overwriting it.
-          const check = await fetchState();
-          if ((check.version || 0) !== baseVersion) {
-            attempt++;
-            continue;
-          }
-          fresh.version = baseVersion + 1;
+      let aborted = false;
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(stateDocRef);
+        let fresh;
+        if (!snap.exists) {
+          fresh = { members: [], lastReset: "", weekStart: "" };
+        } else {
+          fresh = snap.data();
+        }
+        fresh = normalize(fresh);
+        if (mutator(fresh) === false) {
+          aborted = true;
           state = fresh;
           render();
-          await pushState(state);
-          return true;
-        } catch (e) {
-          attempt++;
-          if (attempt >= maxRetries) throw e;
-          // Exponential backoff: 500ms, 1000ms, 1500ms…
-          await new Promise(r => setTimeout(r, 500 * attempt));
+          return; // don't write
         }
-      }
-      throw new Error("Too many sync conflicts — try again");
+        state = fresh;
+        render();
+        tx.set(stateDocRef, fresh);
+      });
+      return !aborted;
     } catch (e) {
       showToast("⚠️ " + (e.message || "Sync failed — refresh and try again"));
       return false;
@@ -669,19 +665,11 @@
   }
 
   async function load() {
-    if (ACCESS_KEY === "YOUR_ACCESS_KEY" || BIN_ID === "YOUR_BIN_ID") {
-      const b = document.getElementById("setup-banner");
-      b.innerHTML = "⚠️ <strong>Setup needed:</strong> Open <code>index.html</code> and paste your JSONBin Access Key and Bin ID into the script (in quotes).";
-      b.style.display = "block";
-      document.getElementById("add-btn").style.display = "none";
-      return;
-    }
     try {
       const fresh = await fetchState();
       const needsReset = fresh.lastReset !== today() || fresh.weekStart !== weekStart();
       if (needsReset) {
-        // Re-fetch right before pushing (via syncedUpdate) so a concurrent
-        // ink from another device isn't clobbered by a stale reset push.
+        // Apply reset atomically via transaction
         await syncedUpdate(s => { normalize(s); });
       } else {
         state = normalize(fresh);
@@ -1297,8 +1285,8 @@
   });
 
   // ── Live auto-refresh ────────────────────────
-  const POLL_MS = 30000; // re-check every 30s; lower = snappier but more API calls
-
+  // poll() is kept for reset detection only (called on tab visibility change).
+  // Real-time sync is handled by the onSnapshot listener below.
   async function poll() {
     // Skip if the user is busy typing, entering a PIN, or a save is in flight
     if (formOpen || busy || !state) return;
@@ -1306,18 +1294,11 @@
       const raw = await fetchState();
       const needsReset = raw.lastReset !== today() || raw.weekStart !== weekStart();
       if (needsReset) {
-        // Persist the reset safely (re-fetches right before pushing)
+        // Persist the reset safely via transaction
         await syncedUpdate(s => { normalize(s); });
-        return;
-      }
-      const fresh = normalize(raw);
-      // Only re-render if something actually changed (avoids flicker)
-      if (JSON.stringify(fresh) !== JSON.stringify(state)) {
-        state = fresh;
-        render();
       }
     } catch (e) {
-      // Stay quiet on transient poll failures — the next tick will retry
+      // Stay quiet on transient failures
     }
   }
 
@@ -1349,10 +1330,27 @@
   }
 
   load();
-  setInterval(poll, POLL_MS);
+
+  // Real-time listener — Firestore pushes changes to all open tabs instantly.
+  // We skip updates that arrive while a save is in flight (busy=true) since
+  // syncedUpdate already calls render() with the committed state.
+  stateDocRef.onSnapshot(snap => {
+    if (!snap.exists || busy) return;
+    const raw = snap.data();
+    // If a reset is needed, let poll()/syncedUpdate handle it next visibility tick
+    if (raw.lastReset !== today() || raw.weekStart !== weekStart()) return;
+    const fresh = normalize(raw);
+    if (JSON.stringify(fresh) !== JSON.stringify(state)) {
+      state = fresh;
+      render();
+    }
+  }, () => {
+    // Stay quiet on transient listener errors
+  });
+
   setInterval(checkForAppUpdate, 120000); // check for new code every 2 min
 
-  // Also refresh the moment you return to the tab after it was hidden
+  // Refresh the moment you return to the tab after it was hidden
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) { poll(); checkForAppUpdate(); }
   });
