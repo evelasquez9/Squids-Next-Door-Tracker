@@ -1055,6 +1055,8 @@
     setSavingState(btn, false);
     if (ok) showToast("Yesterday inked! 🦑");
   }
+
+  async function remove(id) {
     const m = state.members.find(x => x.id === id);
     if (!m) return;
     if (!(await verifyMember(m, "remove them"))) return;
