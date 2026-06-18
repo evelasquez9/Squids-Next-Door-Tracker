@@ -325,7 +325,7 @@
   .wday-partial { background: linear-gradient(135deg,#d97706,#f59e0b); color: #fff; box-shadow: 0 0 6px rgba(245,158,11,0.35); }
   .wday-today { border: 2px solid #a78bfa; background: rgba(139,92,246,0.1); color: #a78bfa; }
   .wday-future { background: rgba(148,163,184,0.07); border: 1px solid rgba(148,163,184,0.12); }
-  .wday-missed { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.18); }
+  .wday-missed { background: rgba(239,68,68,0.22); border: 1px solid rgba(239,68,68,0.5); color: #f87171; }
   .wday-label { font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
   /* Edit modal goal2 section */
   .edit-goal-section { margin-bottom: 4px; }
@@ -770,12 +770,12 @@
         else if (done1 || done2) { cls += " wday-partial"; content = "½"; }
         else if (isToday)        { cls += " wday-today"; }
         else if (isFuture)       { cls += " wday-future"; }
-        else                     { cls += " wday-missed"; }
+        else                     { cls += " wday-missed"; content = "✕"; }
       } else {
         if (done1)         { cls += " wday-done"; content = "✓"; }
         else if (isToday)  { cls += " wday-today"; }
         else if (isFuture) { cls += " wday-future"; }
-        else               { cls += " wday-missed"; }
+        else               { cls += " wday-missed"; content = "✕"; }
       }
       return `<div class="wday-cell"><div class="${cls}">${content}</div><div class="wday-label">${d[0]}</div></div>`;
     }).join("")}</div>`;
