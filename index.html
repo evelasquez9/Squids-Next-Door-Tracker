@@ -632,8 +632,14 @@
     // Apply daily reset to a single goal object; returns {goal, missed}
     function dailyResetGoal(g) {
       if (g.goalType === "weekly") return { goal: { ...g, completedToday: false }, missed: 0 };
+      const hadStreak = !g.completedToday && (g.streak || 0) > 0;
       return {
-        goal: { ...g, streak: g.completedToday ? g.streak : 0, completedToday: false },
+        goal: {
+          ...g,
+          streak: g.completedToday ? g.streak : 0,
+          lastStreak: hadStreak ? g.streak : (g.lastStreak || 0),
+          completedToday: false,
+        },
         missed: g.completedToday ? 0 : 1,
       };
     }
@@ -1105,14 +1111,23 @@
       if (!Array.isArray(t.weekLog)) t.weekLog = [];
       if (!t.weekLog.includes(y)) {
         t.weekLog.push(y);
-        if (t.goalType !== "weekly") t.streak = (t.streak || 0) + 1;
+        if (t.goalType !== "weekly") {
+          // If the reset zeroed a streak, restore it and add 1 for yesterday
+          const base = (t.lastStreak || 0) > 0 ? t.lastStreak : t.streak || 0;
+          t.streak = base + 1;
+          t.lastStreak = 0;
+        }
       }
       // Fill goal2 weekLog
       if (t.goal2) {
         if (!Array.isArray(t.goal2.weekLog)) t.goal2.weekLog = [];
         if (!t.goal2.weekLog.includes(y)) {
           t.goal2.weekLog.push(y);
-          if (t.goal2.goalType !== "weekly") t.goal2.streak = (t.goal2.streak || 0) + 1;
+          if (t.goal2.goalType !== "weekly") {
+            const base2 = (t.goal2.lastStreak || 0) > 0 ? t.goal2.lastStreak : t.goal2.streak || 0;
+            t.goal2.streak = base2 + 1;
+            t.goal2.lastStreak = 0;
+          }
         }
       }
       // Remove the miss (capped at 1 per day, so remove 1)
