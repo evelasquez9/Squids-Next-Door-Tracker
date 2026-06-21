@@ -1128,8 +1128,9 @@
       if (!Array.isArray(t.weekLog)) t.weekLog = [];
       if (!t.weekLog.includes(y)) {
         t.weekLog.push(y);
-        if (t.goalType !== "weekly") {
-          // If the reset zeroed a streak, restore it and add 1 for yesterday
+        if (t.goalType === "weekly") {
+          t.weeklyCount = (t.weeklyCount || 0) + 1;
+        } else {
           const base = (t.lastStreak || 0) > 0 ? t.lastStreak : t.streak || 0;
           t.streak = base + 1;
           t.lastStreak = 0;
@@ -1140,7 +1141,9 @@
         if (!Array.isArray(t.goal2.weekLog)) t.goal2.weekLog = [];
         if (!t.goal2.weekLog.includes(y)) {
           t.goal2.weekLog.push(y);
-          if (t.goal2.goalType !== "weekly") {
+          if (t.goal2.goalType === "weekly") {
+            t.goal2.weeklyCount = (t.goal2.weeklyCount || 0) + 1;
+          } else {
             const base2 = (t.goal2.lastStreak || 0) > 0 ? t.goal2.lastStreak : t.goal2.streak || 0;
             t.goal2.streak = base2 + 1;
             t.goal2.lastStreak = 0;
