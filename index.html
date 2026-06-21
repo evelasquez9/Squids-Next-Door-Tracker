@@ -892,9 +892,11 @@
       }
 
       const yDay = yesterdayShort();
+      const primaryWeeklyDone = m.goalType === "weekly" && (m.weeklyCount || 0) >= (m.weeklyTarget || 1);
+      const goal2WeeklyDone = m.goal2 && m.goal2.goalType === "weekly" && (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1);
       const showInkYesterday = WEEK_DAYS.includes(yDay) && (
-        !(m.weekLog || []).includes(yDay) ||
-        (m.goal2 && !(m.goal2.weekLog || []).includes(yDay))
+        (!primaryWeeklyDone && !(m.weekLog || []).includes(yDay)) ||
+        (m.goal2 && !goal2WeeklyDone && !(m.goal2.weekLog || []).includes(yDay))
       );
       const inkYesterdayBtn = showInkYesterday
         ? `<button class="btn-ink-yesterday" data-id="${m.id}" title="Forgot to log yesterday?">+yesterday</button>`
