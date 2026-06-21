@@ -1060,97 +1060,140 @@
   function playInkSplat() {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const now = ctx.currentTime;
 
-      // Low thud — sine wave with fast decay
-      const osc = ctx.createOscillator();
-      const oscGain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(120, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.12);
-      oscGain.gain.setValueAtTime(0.6, ctx.currentTime);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-      osc.connect(oscGain);
-      oscGain.connect(ctx.destination);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.18);
-
-      // Wet noise burst — white noise through a lowpass filter
-      const bufSize = ctx.sampleRate * 0.15;
+      // Sharp wet impact — noise shaped like a splat envelope
+      const bufSize = Math.floor(ctx.sampleRate * 0.12);
       const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
       const data = buf.getChannelData(0);
-      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+      for (let i = 0; i < bufSize; i++) {
+        // Sharper attack, exponential decay — mimics liquid impact
+        const t = i / bufSize;
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-t * 18);
+      }
       const noise = ctx.createBufferSource();
       noise.buffer = buf;
-      const filter = ctx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.value = 400;
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.35, ctx.currentTime);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      noise.connect(filter);
-      filter.connect(noiseGain);
-      noiseGain.connect(ctx.destination);
-      noise.start(ctx.currentTime);
-      noise.stop(ctx.currentTime + 0.15);
 
-      setTimeout(() => ctx.close(), 300);
+      // Bandpass sweep — high on impact, rolls off as it spreads
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.setValueAtTime(1200, now);
+      bp.frequency.exponentialRampToValueAtTime(180, now + 0.08);
+      bp.Q.value = 0.8;
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(1.4, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      noise.connect(bp);
+      bp.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(now);
+
+      // Deep "thwack" body — pitch drops like liquid mass hitting surface
+      const body = ctx.createOscillator();
+      body.type = "triangle";
+      body.frequency.setValueAtTime(280, now);
+      body.frequency.exponentialRampToValueAtTime(55, now + 0.07);
+      const bodyGain = ctx.createGain();
+      bodyGain.gain.setValueAtTime(0.9, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      body.connect(bodyGain);
+      bodyGain.connect(ctx.destination);
+      body.start(now);
+      body.stop(now + 0.1);
+
+      // Subtle drip tail — tiny blip after the main splat
+      setTimeout(() => {
+        const drip = ctx.createOscillator();
+        drip.type = "sine";
+        drip.frequency.setValueAtTime(900, ctx.currentTime);
+        drip.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.06);
+        const dripGain = ctx.createGain();
+        dripGain.gain.setValueAtTime(0.15, ctx.currentTime);
+        dripGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+        drip.connect(dripGain);
+        dripGain.connect(ctx.destination);
+        drip.start(ctx.currentTime);
+        drip.stop(ctx.currentTime + 0.06);
+      }, 80);
+
+      setTimeout(() => ctx.close(), 400);
     } catch(e) {}
   }
 
   // ── Actions ──────────────────────────────────
   function inkSplash(btn, card) {
     if (!card) return;
-    const cr = card.getBoundingClientRect();
-    const br = btn ? btn.getBoundingClientRect() : cr;
+    const br = btn ? btn.getBoundingClientRect() : card.getBoundingClientRect();
     const ox = br.left + br.width / 2;
     const oy = br.top  + br.height / 2;
-    const size = Math.max(cr.width, cr.height) * 5;
 
+    // Button thwack — quick squish and bounce
+    if (btn) {
+      btn.style.transition = "transform 0.08s ease-out";
+      btn.style.transform = "scale(0.82)";
+      setTimeout(() => {
+        btn.style.transition = "transform 0.25s cubic-bezier(0.34,1.56,0.64,1)";
+        btn.style.transform = "scale(1)";
+      }, 80);
+    }
+
+    // Card border flash
+    const prevBoxShadow = card.style.boxShadow;
+    card.style.transition = "box-shadow 0.08s ease";
+    card.style.boxShadow = "0 0 0 2px rgba(2,6,23,0.9), 0 0 30px rgba(0,0,0,0.6)";
+    setTimeout(() => {
+      card.style.transition = "box-shadow 0.4s ease";
+      card.style.boxShadow = prevBoxShadow;
+    }, 80);
+
+    // Ink droplets spraying outward from button — no card overlay
     const layer = document.createElement("div");
-    layer.style.cssText = `position:fixed;left:${cr.left}px;top:${cr.top}px;` +
-      `width:${cr.width}px;height:${cr.height}px;border-radius:16px;overflow:hidden;` +
-      `pointer-events:none;z-index:9999`;
+    layer.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden`;
     document.body.appendChild(layer);
 
-    const lx = ox - cr.left, ly = oy - cr.top;
-
-    // Main splash blob — floods the card then fades out
-    const splash = document.createElement("div");
-    splash.style.cssText = `position:absolute;border-radius:50%;` +
-      `width:${size}px;height:${size}px;left:${lx - size/2}px;top:${ly - size/2}px;` +
-      `background:radial-gradient(circle,rgba(2,6,23,0.95) 0%,rgba(15,23,42,0.75) 45%,transparent 70%);` +
-      `transform:scale(0);opacity:1;transition:transform 0.5s cubic-bezier(0.22,1,0.36,1)`;
-    layer.appendChild(splash);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      splash.style.transform = "scale(1)";
-      // After flood completes, fade out
-      setTimeout(() => {
-        splash.style.transition = "opacity 0.4s ease";
-        splash.style.opacity = "0";
-      }, 450);
-    }));
-
-    // Ink droplets — animate position via JS to avoid CSS custom property issues on iOS
-    for (let i = 0; i < 10; i++) {
-      const s = 8 + Math.random() * 14;
-      const angle = Math.random() * 2 * Math.PI;
-      const dist = 40 + Math.random() * 90;
-      const tx = lx + Math.cos(angle) * dist;
-      const ty = ly + Math.sin(angle) * dist;
+    const count = 18;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+      const dist = 50 + Math.random() * 120;
+      const s = 4 + Math.random() * 12;
+      const dur = 0.35 + Math.random() * 0.25;
+      const delay = Math.random() * 0.05;
+      const tx = ox + Math.cos(angle) * dist;
+      const ty = oy + Math.sin(angle) * dist;
       const drop = document.createElement("div");
-      drop.style.cssText = `position:absolute;border-radius:50%;` +
-        `width:${s}px;height:${s}px;left:${lx - s/2}px;top:${ly - s/2}px;` +
-        `background:rgba(2,6,23,0.85);` +
-        `transition:transform ${0.5 + Math.random()*0.3}s ease-out,opacity 0.5s ease;` +
-        `transition-delay:${Math.random()*0.1}s`;
+      // Elongate in direction of travel for streaky look
+      const stretch = 1 + Math.random() * 1.2;
+      drop.style.cssText = `position:fixed;border-radius:50%;` +
+        `width:${s * stretch}px;height:${s}px;` +
+        `left:${ox - (s * stretch) / 2}px;top:${oy - s / 2}px;` +
+        `background:rgba(2,6,23,0.92);` +
+        `transform:rotate(${angle}rad) scale(1);` +
+        `transition:left ${dur}s ease-out ${delay}s,top ${dur}s ease-out ${delay}s,opacity ${dur * 0.8}s ease ${delay + dur * 0.3}s,transform ${dur}s ease-out ${delay}s;`;
       layer.appendChild(drop);
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        drop.style.transform = `translate(${tx - lx}px,${ty - ly}px) scale(0.2)`;
+        drop.style.left = `${tx - (s * stretch) / 2}px`;
+        drop.style.top  = `${ty - s / 2}px`;
         drop.style.opacity = "0";
+        drop.style.transform = `rotate(${angle}rad) scale(0.3)`;
       }));
     }
 
-    setTimeout(() => layer.remove(), 1000);
+    // Central splat blob that fades fast — not a card flood
+    const blob = document.createElement("div");
+    const bs = 60;
+    blob.style.cssText = `position:fixed;border-radius:50%;` +
+      `width:${bs}px;height:${bs}px;left:${ox - bs/2}px;top:${oy - bs/2}px;` +
+      `background:radial-gradient(circle,rgba(2,6,23,0.85) 0%,transparent 70%);` +
+      `transform:scale(0);transition:transform 0.15s ease-out,opacity 0.2s ease 0.1s`;
+    layer.appendChild(blob);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      blob.style.transform = "scale(1)";
+      blob.style.opacity = "0";
+    }));
+
+    setTimeout(() => layer.remove(), 800);
   }
 
   function setSavingState(btn, saving) {
