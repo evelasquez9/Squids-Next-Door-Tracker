@@ -152,6 +152,28 @@
     font-size: 11px; padding: 2px 8px;
     border-radius: 20px; font-style: normal;
   }
+  .badge-milestone {
+    position: relative; overflow: hidden;
+    font-size: 11px; font-weight: 700; font-style: normal;
+    padding: 3px 10px; border-radius: 20px;
+    letter-spacing: 0.5px;
+    animation: milestonePulse var(--m-dur, 2.5s) ease-in-out infinite;
+  }
+  .badge-milestone::after {
+    content: ""; position: absolute;
+    top: 0; left: -75%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    animation: milestoneShimmer var(--m-dur, 2.5s) ease-in-out infinite;
+    border-radius: 20px;
+  }
+  @keyframes milestonePulse {
+    0%,100% { box-shadow: 0 0 6px var(--m-color), 0 0 0px var(--m-color); }
+    50%      { box-shadow: 0 0 14px var(--m-color), 0 0 28px var(--m-color); }
+  }
+  @keyframes milestoneShimmer {
+    0%   { left: -75%; }
+    60%,100% { left: 125%; }
+  }
   .card-goal { color: #7dd3fc; font-size: 13px; margin-top: 2px; opacity: 0.9; }
   .card-streak { font-size: 12px; margin-top: 4px; }
   .fire { display: inline-block; animation: firePulse 1.2s ease-in-out infinite; transform-origin: center bottom; }
@@ -557,10 +579,15 @@
   </svg>`;
 
   const MILESTONES = [
-    { days: 30, label: "30🦑 LEGEND", color: "#ffd700" },
-    { days: 14, label: "14🦑 LEGEND", color: "#c084fc" },
-    { days: 7,  label: "7🦑 LEGEND",  color: "#34d399" },
+    { days: 30, label: "30🦑 LEGEND", icon: "👑", color: "#ffd700", dur: "2s" },
+    { days: 14, label: "14🦑 LEGEND", icon: "💎", color: "#c084fc", dur: "2.5s" },
+    { days: 7,  label: "7🦑 LEGEND",  icon: "⚔️",  color: "#34d399", dur: "3s"  },
   ];
+
+  function milestoneBadgeHtml(ms, extra = "") {
+    if (!ms) return "";
+    return `<span class="badge-milestone" style="background:${ms.color}22;border:1px solid ${ms.color}99;color:${ms.color};--m-color:${ms.color};--m-dur:${ms.dur};${extra}">${ms.icon} ${ms.label}</span>`;
+  }
 
   // Date string (YYYY-MM-DD) pinned to Eastern Time — the whole squad's
   // day flips at the same moment regardless of device timezone or clock
@@ -917,7 +944,7 @@
           <div class="goal-row-info">
             <div class="card-goal" style="margin-top:0">🎯 ${esc(g.text || g.goal || "")}
               ${isW ? `<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8;margin-left:4px">Weekly</span>` : ""}
-              ${ms2 ? `<span class="badge" style="background:${ms2.color}22;border:1px solid ${ms2.color}88;color:${ms2.color};margin-left:4px">${ms2.label}</span>` : ""}
+              ${milestoneBadgeHtml(ms2, "margin-left:4px")}
             </div>
             <div class="card-streak" style="color:${streakColor}">${streakLabel}</div>
             ${progressLine}
@@ -999,7 +1026,7 @@
             <div class="card-name-row">
               <span class="card-name">${esc(m.name)}</span>
               ${isWeekly?`<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8">Weekly</span>`:""}
-              ${ms?`<span class="badge" style="background:${ms.color}22;border:1px solid ${ms.color}88;color:${ms.color}">${ms.label}</span>`:""}
+              ${milestoneBadgeHtml(ms)}
               ${isShamed?`<span class="badge" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.45);color:#f87171">🪣 Squid of Shame</span>`:""}
             </div>
             <div class="card-goal">🎯 ${esc(m.goal)}</div>
