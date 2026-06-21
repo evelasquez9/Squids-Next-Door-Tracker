@@ -1129,7 +1129,8 @@
       const y = yesterdayShort();
       // Fill primary weekLog
       if (!Array.isArray(t.weekLog)) t.weekLog = [];
-      if (!t.weekLog.includes(y)) {
+      const primaryAlreadyDone = t.goalType === "weekly" && (t.weeklyCount || 0) >= (t.weeklyTarget || 1);
+      if (!t.weekLog.includes(y) && !primaryAlreadyDone) {
         t.weekLog.push(y);
         if (t.goalType === "weekly") {
           t.weeklyCount = (t.weeklyCount || 0) + 1;
@@ -1142,7 +1143,8 @@
       // Fill goal2 weekLog
       if (t.goal2) {
         if (!Array.isArray(t.goal2.weekLog)) t.goal2.weekLog = [];
-        if (!t.goal2.weekLog.includes(y)) {
+        const goal2AlreadyDone = t.goal2.goalType === "weekly" && (t.goal2.weeklyCount || 0) >= (t.goal2.weeklyTarget || 1);
+        if (!t.goal2.weekLog.includes(y) && !goal2AlreadyDone) {
           t.goal2.weekLog.push(y);
           if (t.goal2.goalType === "weekly") {
             t.goal2.weeklyCount = (t.goal2.weeklyCount || 0) + 1;
