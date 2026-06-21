@@ -964,8 +964,8 @@
           <div class="goal-row-info">
             <div class="card-goal" style="margin-top:0">🎯 ${esc(g.text || g.goal || "")}
               ${isW ? `<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8;margin-left:4px">Weekly</span>` : ""}
-              ${milestoneBadgeHtml(ms2, "margin-left:4px")}
             </div>
+            ${ms2 ? `<div style="margin-top:3px">${milestoneBadgeHtml(ms2)}</div>` : ""}
             <div class="card-streak" style="color:${streakColor}">${streakLabel}</div>
             ${progressLine}
           </div>
