@@ -112,6 +112,14 @@
     transition: all 0.3s ease;
     position: relative; overflow: hidden;
   }
+  .card-shamed {
+    filter: saturate(0.45) brightness(0.88);
+    animation: shameGlow 2s ease-in-out infinite;
+  }
+  @keyframes shameGlow {
+    0%, 100% { box-shadow: 0 0 14px rgba(239,68,68,0.35); border-color: rgba(239,68,68,0.4); }
+    50%       { box-shadow: 0 0 28px rgba(239,68,68,0.65); border-color: rgba(239,68,68,0.75); }
+  }
   /* Ink splash overlay */
   .ink-splash {
     position: absolute; border-radius: 50%;
@@ -808,8 +816,12 @@
     }
   }
 
-  function getMilestone(streak) {
-    return MILESTONES.find(m => streak >= m.days) || null;
+  function goalEffectiveDays(g) {
+    return g.goalType === "weekly" ? (g.streak || 0) * (g.weeklyTarget || 1) : (g.streak || 0);
+  }
+
+  function getMilestone(g) {
+    return MILESTONES.find(m => goalEffectiveDays(g) >= m.days) || null;
   }
 
   const WEEK_DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
@@ -905,7 +917,6 @@
 
     const container = document.getElementById("cards");
     container.innerHTML = "";
-    const goalEffectiveDays = g => g.goalType === "weekly" ? (g.streak || 0) * (g.weeklyTarget || 1) : (g.streak || 0);
     const totalStreak = m => goalEffectiveDays(m) + (m.goal2 ? goalEffectiveDays(m.goal2) : 0);
     const sorted = [...members].sort((a, b) => {
       const ds = totalStreak(b) - totalStreak(a);
@@ -936,7 +947,7 @@
         const progressLine = isW
           ? `<div class="card-missed" style="color:${wDone?"#34d399":wC>0?"#38bdf8":"#64748b"}">🗓️ ${wC}/${wT} this week${wDone?" ✓":""}</div>`
           : "";
-        const ms2 = getMilestone(g.streak);
+        const ms2 = getMilestone(g);
         let inkBtn;
         if (isW && wDone) {
           inkBtn = `<span class="inked-label" style="font-size:12px">✓ Done!</span>`;
@@ -970,13 +981,15 @@
         : "";
 
       const card = document.createElement("div");
-      card.className = `card ${allDone ? "done" : "pending"}`;
+      card.className = `card ${allDone ? "done" : "pending"}${isShamed ? " card-shamed" : ""}`;
       const streak = totalStreak(m);
-      const glowAlpha = Math.min(0.15 + streak * 0.018, 0.7).toFixed(2);
-      const glowSize = Math.min(18 + streak * 3, 60);
-      const glowColor = streak >= 30 ? `255,215,0` : streak >= 14 ? `192,132,252` : streak >= 7 ? `52,211,153` : `125,211,252`;
-      if (streak > 0) card.style.boxShadow = `0 0 ${glowSize}px rgba(${glowColor},${glowAlpha})`;
-      if (streak > 0 && !allDone) card.style.borderColor = `rgba(${glowColor},${Math.min(0.2 + streak * 0.025, 0.8).toFixed(2)})`;
+      if (!isShamed) {
+        const glowAlpha = Math.min(0.15 + streak * 0.018, 0.7).toFixed(2);
+        const glowSize = Math.min(18 + streak * 3, 60);
+        const glowColor = streak >= 30 ? `255,215,0` : streak >= 14 ? `192,132,252` : streak >= 7 ? `52,211,153` : `125,211,252`;
+        if (streak > 0) card.style.boxShadow = `0 0 ${glowSize}px rgba(${glowColor},${glowAlpha})`;
+        if (streak > 0 && !allDone) card.style.borderColor = `rgba(${glowColor},${Math.min(0.2 + streak * 0.025, 0.8).toFixed(2)})`;
+      }
       const crownHtml = isFirst ? `<span class="rank-crown">👑</span>` : "";
       const rankHtml = `<div class="card-rank">${crownHtml}#${rank}</div>`;
 
@@ -1006,7 +1019,7 @@
       } else {
         // Single-goal layout
         const isWeekly = m.goalType === "weekly";
-        const ms = getMilestone(m.streak);
+        const ms = getMilestone(m);
         const wCount = m.weeklyCount || 0, wTarget = m.weeklyTarget || 1;
         const wDone = wCount >= wTarget;
         const wColor = wDone ? "#34d399" : wCount > 0 ? "#38bdf8" : "#64748b";
