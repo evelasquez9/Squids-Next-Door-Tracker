@@ -838,7 +838,12 @@
   // ── Rendering ────────────────────────────────
   function render() {
     const members = state.members;
-    const done = members.filter(m => m.completedToday).length;
+    const memberDone = m => {
+      const g1done = m.goalType === "weekly" ? (m.weeklyCount || 0) >= (m.weeklyTarget || 1) : m.completedToday;
+      const g2done = !m.goal2 || (m.goal2.goalType === "weekly" ? (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1) : m.goal2.completedToday);
+      return g1done && g2done;
+    };
+    const done = members.filter(memberDone).length;
     const total = members.length;
 
     const bar = document.getElementById("summary-bar");
