@@ -1057,68 +1057,13 @@
   }
 
   // ── Sound ────────────────────────────────────
+  const SPLAT_AUDIO = "data:audio/mp3;base64,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";
+
   function playInkSplat() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const now = ctx.currentTime;
-
-      // Sharp wet impact — noise shaped like a splat envelope
-      const bufSize = Math.floor(ctx.sampleRate * 0.12);
-      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < bufSize; i++) {
-        // Sharper attack, exponential decay — mimics liquid impact
-        const t = i / bufSize;
-        data[i] = (Math.random() * 2 - 1) * Math.exp(-t * 18);
-      }
-      const noise = ctx.createBufferSource();
-      noise.buffer = buf;
-
-      // Bandpass sweep — high on impact, rolls off as it spreads
-      const bp = ctx.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.frequency.setValueAtTime(1200, now);
-      bp.frequency.exponentialRampToValueAtTime(180, now + 0.08);
-      bp.Q.value = 0.8;
-
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(1.4, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-      noise.connect(bp);
-      bp.connect(noiseGain);
-      noiseGain.connect(ctx.destination);
-      noise.start(now);
-
-      // Deep "thwack" body — pitch drops like liquid mass hitting surface
-      const body = ctx.createOscillator();
-      body.type = "triangle";
-      body.frequency.setValueAtTime(280, now);
-      body.frequency.exponentialRampToValueAtTime(55, now + 0.07);
-      const bodyGain = ctx.createGain();
-      bodyGain.gain.setValueAtTime(0.9, now);
-      bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-      body.connect(bodyGain);
-      bodyGain.connect(ctx.destination);
-      body.start(now);
-      body.stop(now + 0.1);
-
-      // Subtle drip tail — tiny blip after the main splat
-      setTimeout(() => {
-        const drip = ctx.createOscillator();
-        drip.type = "sine";
-        drip.frequency.setValueAtTime(900, ctx.currentTime);
-        drip.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.06);
-        const dripGain = ctx.createGain();
-        dripGain.gain.setValueAtTime(0.15, ctx.currentTime);
-        dripGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-        drip.connect(dripGain);
-        dripGain.connect(ctx.destination);
-        drip.start(ctx.currentTime);
-        drip.stop(ctx.currentTime + 0.06);
-      }, 80);
-
-      setTimeout(() => ctx.close(), 400);
+      const audio = new Audio(SPLAT_AUDIO);
+      audio.volume = 0.8;
+      audio.play();
     } catch(e) {}
   }
 
