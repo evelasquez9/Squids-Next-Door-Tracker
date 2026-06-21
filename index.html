@@ -775,7 +775,7 @@
         const done = log.includes(d);
         const isToday = d === todayDay;
         const isFuture = i > todayIdx;
-        const isVoid = isWeekly && weeklyDone && !done && !isToday && !isFuture;
+        const isVoid = isWeekly && weeklyDone && !done;
         let cls = "wday-dot";
         let content = "";
         if (done)          { cls += " wday-done"; content = "✓"; }
