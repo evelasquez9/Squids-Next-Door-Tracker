@@ -1067,6 +1067,15 @@
     } catch(e) {}
   }
 
+  function playUnink() {
+    try {
+      const audio = new Audio(SPLAT_AUDIO);
+      audio.playbackRate = 2.0;
+      audio.volume = 0.45;
+      audio.play();
+    } catch(e) {}
+  }
+
   // ── Actions ──────────────────────────────────
   function inkSplash(btn, card) {
     if (!card) return;
@@ -1190,6 +1199,7 @@
     const g = which === "secondary" ? m.goal2 : m;
     if (!g || !g.completedToday) return;
     if (!(await verifyMember(m, "un-ink it"))) return;
+    playUnink();
     setSavingState(btn, true);
     const ok = await syncedUpdate(s => {
       const t = s.members.find(x => x.id === id);
