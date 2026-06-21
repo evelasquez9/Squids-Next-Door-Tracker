@@ -1056,6 +1056,47 @@
       b.addEventListener("click", () => remove(b.dataset.id)));
   }
 
+  // ── Sound ────────────────────────────────────
+  function playInkSplat() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Low thud — sine wave with fast decay
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(120, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.12);
+      oscGain.gain.setValueAtTime(0.6, ctx.currentTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.18);
+
+      // Wet noise burst — white noise through a lowpass filter
+      const bufSize = ctx.sampleRate * 0.15;
+      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 400;
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.35, ctx.currentTime);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(ctx.currentTime);
+      noise.stop(ctx.currentTime + 0.15);
+
+      setTimeout(() => ctx.close(), 300);
+    } catch(e) {}
+  }
+
   // ── Actions ──────────────────────────────────
   function inkSplash(btn, card) {
     if (!card) return;
@@ -1135,6 +1176,7 @@
     if (!(await verifyMember(m, "ink it"))) return;
     // Capture card reference before re-render replaces the DOM
     const card = btn ? btn.closest(".card") : null;
+    playInkSplat();
     if (card) inkSplash(btn, card);
     setSavingState(btn, true);
     const ok = await syncedUpdate(s => {
