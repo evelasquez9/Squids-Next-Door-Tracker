@@ -762,21 +762,23 @@
 
   const WEEK_DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
-  function weekCalendarHtml(weekLog, weekLog2, label1, label2, type1, type2) {
+  function weekCalendarHtml(weekLog, weekLog2, label1, label2, type1, type2, weeklyDone1, weeklyDone2) {
     const log1 = Array.isArray(weekLog) ? weekLog : [];
     const log2 = Array.isArray(weekLog2) ? weekLog2 : [];
     const dual = weekLog2 !== undefined;
     const todayDay = todayShort();
     const todayIdx = WEEK_DAYS.indexOf(todayDay);
 
-    function rowHtml(log, isLast) {
+    function rowHtml(log, isLast, isWeekly, weeklyDone) {
       return WEEK_DAYS.map((d, i) => {
         const done = log.includes(d);
         const isToday = d === todayDay;
         const isFuture = i > todayIdx;
+        const isVoid = isWeekly && weeklyDone && !done && !isToday && !isFuture;
         let cls = "wday-dot";
         let content = "";
         if (done)          { cls += " wday-done"; content = "✓"; }
+        else if (isVoid)   { cls += " wday-future"; }
         else if (isToday)  { cls += " wday-today"; }
         else if (isFuture) { cls += " wday-future"; }
         else               { cls += " wday-missed"; content = "✕"; }
@@ -791,15 +793,15 @@
         <div class="week-cal-dual">
           <div class="week-cal-row">
             <div class="week-cal-goal-label"><span>${icon1}</span> ${esc(label1 || "Goal 1")}</div>
-            <div class="week-cal">${rowHtml(log1, false)}</div>
+            <div class="week-cal">${rowHtml(log1, false, type1 === "weekly", weeklyDone1)}</div>
           </div>
           <div class="week-cal-row">
             <div class="week-cal-goal-label"><span>${icon2}</span> ${esc(label2 || "Goal 2")}</div>
-            <div class="week-cal">${rowHtml(log2, true)}</div>
+            <div class="week-cal">${rowHtml(log2, true, type2 === "weekly", weeklyDone2)}</div>
           </div>
         </div>`;
     }
-    return `<div class="week-cal">${rowHtml(log1, true)}</div>`;
+    return `<div class="week-cal">${rowHtml(log1, true, type1 === "weekly", weeklyDone1)}</div>`;
   }
 
   // ── Rendering ────────────────────────────────
@@ -921,7 +923,7 @@
             </div>
             ${goalRowHtml(primaryGoalObj, "primary")}
             ${goalRowHtml(m.goal2, "secondary")}
-            ${weekCalendarHtml(m.weekLog, m.goal2.weekLog, m.goal, m.goal2.text, m.goalType, m.goal2.goalType)}
+            ${weekCalendarHtml(m.weekLog, m.goal2.weekLog, m.goal, m.goal2.text, m.goalType, m.goal2.goalType, goalDone(m), goalDone(m.goal2))}
             <div class="card-footer">
               <div class="card-missed" style="color:${missed>0?"#f87171":"#94a3b8"}">${missed>0?`💀 ${missed} miss${missed===1?"":"es"} this week`:"✨ No misses this week"}</div>
               <div class="card-footer-btns">
@@ -1126,8 +1128,9 @@
       if (!Array.isArray(t.weekLog)) t.weekLog = [];
       if (!t.weekLog.includes(y)) {
         t.weekLog.push(y);
-        if (t.goalType !== "weekly") {
-          // If the reset zeroed a streak, restore it and add 1 for yesterday
+        if (t.goalType === "weekly") {
+          t.weeklyCount = (t.weeklyCount || 0) + 1;
+        } else {
           const base = (t.lastStreak || 0) > 0 ? t.lastStreak : t.streak || 0;
           t.streak = base + 1;
           t.lastStreak = 0;
@@ -1138,7 +1141,9 @@
         if (!Array.isArray(t.goal2.weekLog)) t.goal2.weekLog = [];
         if (!t.goal2.weekLog.includes(y)) {
           t.goal2.weekLog.push(y);
-          if (t.goal2.goalType !== "weekly") {
+          if (t.goal2.goalType === "weekly") {
+            t.goal2.weeklyCount = (t.goal2.weeklyCount || 0) + 1;
+          } else {
             const base2 = (t.goal2.lastStreak || 0) > 0 ? t.goal2.lastStreak : t.goal2.streak || 0;
             t.goal2.streak = base2 + 1;
             t.goal2.lastStreak = 0;
