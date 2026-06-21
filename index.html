@@ -532,26 +532,28 @@
   const stateDocRef = db.collection("state").doc("main");
   // ─────────────────────────────────────────────
 
-  const INK_SPLOTCH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="22" height="22" style="vertical-align:middle;margin-left:4px;filter:drop-shadow(0 0 3px rgba(0,0,0,0.6))">
-    <!-- main blob -->
-    <path d="M40,12 C52,10 64,18 68,30 C73,44 66,58 54,64 C44,69 30,66 22,57 C13,47 14,32 22,23 C27,17 34,13 40,12 Z" fill="#0a0a0a"/>
-    <!-- left lobe -->
-    <path d="M22,38 C18,34 12,36 10,42 C8,48 13,54 19,52 C24,50 25,44 22,38 Z" fill="#0d0d0d"/>
-    <!-- top splat -->
-    <path d="M44,12 C46,6 52,4 54,8 C56,12 52,16 48,15 C46,14 44,13 44,12 Z" fill="#111"/>
-    <!-- right drip -->
-    <path d="M66,34 C70,32 75,36 74,41 C73,45 68,46 66,43 C64,40 64,36 66,34 Z" fill="#0d0d0d"/>
-    <!-- bottom drip -->
-    <path d="M38,66 C37,72 40,78 44,77 C48,76 49,70 46,66 C44,63 39,63 38,66 Z" fill="#111"/>
-    <!-- tiny splatter dots -->
-    <circle cx="58" cy="14" r="2.5" fill="#0a0a0a"/>
-    <circle cx="64" cy="20" r="1.5" fill="#111"/>
-    <circle cx="15" cy="28" r="2" fill="#0a0a0a"/>
-    <circle cx="10" cy="34" r="1.2" fill="#111"/>
-    <circle cx="28" cy="70" r="1.8" fill="#0a0a0a"/>
-    <circle cx="52" cy="72" r="1.3" fill="#111"/>
-    <circle cx="70" cy="50" r="1.6" fill="#0a0a0a"/>
-    <circle cx="74" cy="44" r="1" fill="#111"/>
+  const INK_SPLOTCH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="24" height="24" style="vertical-align:middle;margin-left:4px">
+    <path d="
+      M 50,16
+      C 54,10 62,10 65,16 C 67,20 65,25 61,27
+      C 67,23 76,24 78,31 C 80,38 74,44 67,43
+      C 74,47 80,55 76,63 C 73,69 65,70 60,65
+      C 62,72 60,82 53,83 C 47,84 43,77 44,70
+      C 39,76 31,80 25,75 C 19,70 21,62 27,59
+      C 19,57 12,50 15,42 C 18,35 27,34 33,38
+      C 27,33 24,24 29,18 C 34,13 43,16 45,23
+      C 45,17 47,12 50,16 Z
+    " fill="#060606"/>
+    <!-- upper right droplet -->
+    <ellipse cx="80" cy="26" rx="5.5" ry="3.5" transform="rotate(35,80,26)" fill="#060606"/>
+    <!-- right side droplet -->
+    <ellipse cx="86" cy="52" rx="4" ry="3" transform="rotate(10,86,52)" fill="#060606"/>
+    <!-- bottom droplet -->
+    <ellipse cx="38" cy="90" rx="3.5" ry="2.5" transform="rotate(-15,38,90)" fill="#060606"/>
+    <!-- tiny dots -->
+    <circle cx="70" cy="14" r="2" fill="#060606"/>
+    <circle cx="16" cy="32" r="1.5" fill="#060606"/>
+    <circle cx="22" cy="80" r="1.8" fill="#060606"/>
   </svg>`;
 
   const MILESTONES = [
