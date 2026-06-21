@@ -905,7 +905,8 @@
 
     const container = document.getElementById("cards");
     container.innerHTML = "";
-    const totalStreak = m => (m.streak || 0) + (m.goal2 ? (m.goal2.streak || 0) : 0);
+    const goalEffectiveDays = g => g.goalType === "weekly" ? (g.streak || 0) * (g.weeklyTarget || 1) : (g.streak || 0);
+    const totalStreak = m => goalEffectiveDays(m) + (m.goal2 ? goalEffectiveDays(m.goal2) : 0);
     const sorted = [...members].sort((a, b) => totalStreak(b) - totalStreak(a));
     sorted.forEach((m, rankIdx) => {
       const isShamed = shameList.some(s => s.id === m.id);
