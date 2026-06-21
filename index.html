@@ -911,8 +911,13 @@
       const missCount = shameList[0].missedThisWeek;
       const multi = shameList.length > 1;
       const names = shameList.map(s => esc(s.name)).join(", ");
+      const wStartDate = new Date(weekStart() + "T00:00:00");
+      const wEndDate = new Date(wStartDate); wEndDate.setDate(wStartDate.getDate() + 6);
+      const fmt = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const weekRange = `${fmt(wStartDate)} – ${fmt(wEndDate)}`;
       shameBanner.innerHTML = `
-        <div class="shame-title">💀 Squid${multi ? "s" : ""} of Shame — This Week 💀</div>
+        <div class="shame-title">💀 Squid${multi ? "s" : ""} of Shame 💀</div>
+        <div class="shame-title" style="letter-spacing:2px;font-size:11px;margin-top:2px;opacity:0.8">${weekRange}</div>
         <div class="shame-name">🪣 ${names} 🪣</div>
         <div class="shame-detail">Missed ${missCount} day${missCount === 1 ? "" : "s"} this week — get it together!</div>`;
     } else {
@@ -964,8 +969,8 @@
           <div class="goal-row-info">
             <div class="card-goal" style="margin-top:0">🎯 ${esc(g.text || g.goal || "")}
               ${isW ? `<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8;margin-left:4px">Weekly</span>` : ""}
-              ${milestoneBadgeHtml(ms2, "margin-left:4px")}
             </div>
+            ${ms2 ? `<div style="margin-top:3px">${milestoneBadgeHtml(ms2)}</div>` : ""}
             <div class="card-streak" style="color:${streakColor}">${streakLabel}</div>
             ${progressLine}
           </div>
