@@ -330,6 +330,7 @@
   .wday-today { border: 2px solid #a78bfa; background: rgba(139,92,246,0.1); color: #a78bfa; }
   .wday-future { background: rgba(148,163,184,0.07); border: 1px solid rgba(148,163,184,0.12); }
   .wday-missed { background: rgba(239,68,68,0.22); border: 1px solid rgba(239,68,68,0.5); color: #f87171; }
+  .wday-void { background: rgba(56,189,248,0.06); border: 1px solid rgba(56,189,248,0.15); color: rgba(56,189,248,0.35); }
   .wday-label { font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
   /* Edit modal goal2 section */
   .edit-goal-section { margin-bottom: 4px; }
@@ -778,7 +779,7 @@
         let cls = "wday-dot";
         let content = "";
         if (done)          { cls += " wday-done"; content = "✓"; }
-        else if (isVoid)   { cls += " wday-future"; }
+        else if (isVoid)   { cls += " wday-void"; content = "—"; }
         else if (isToday)  { cls += " wday-today"; }
         else if (isFuture) { cls += " wday-future"; }
         else               { cls += " wday-missed"; content = "✕"; }
@@ -1066,6 +1067,7 @@
     if (!m) return;
     const g = which === "secondary" ? m.goal2 : m;
     if (!g || g.completedToday) return;
+    if (g.goalType === "weekly" && (g.weeklyCount || 0) >= (g.weeklyTarget || 1)) return;
     if (!(await verifyMember(m, "ink it"))) return;
     // Capture card reference before re-render replaces the DOM
     const card = btn ? btn.closest(".card") : null;
@@ -1076,6 +1078,7 @@
       if (!t) return false;
       const tg = which === "secondary" ? t.goal2 : t;
       if (!tg || tg.completedToday) return false;
+      if (tg.goalType === "weekly" && (tg.weeklyCount || 0) >= (tg.weeklyTarget || 1)) return false;
       tg.completedToday = true;
       if (tg.goalType === "weekly") { tg.weeklyCount = (tg.weeklyCount || 0) + 1; }
       else { tg.streak = (tg.streak || 0) + 1; }
