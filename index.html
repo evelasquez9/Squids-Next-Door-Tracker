@@ -532,6 +532,28 @@
   const stateDocRef = db.collection("state").doc("main");
   // ─────────────────────────────────────────────
 
+  const INK_SPLOTCH = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="22" height="22" style="vertical-align:middle;margin-left:4px;filter:drop-shadow(0 0 3px rgba(0,0,0,0.6))">
+    <!-- main blob -->
+    <path d="M40,12 C52,10 64,18 68,30 C73,44 66,58 54,64 C44,69 30,66 22,57 C13,47 14,32 22,23 C27,17 34,13 40,12 Z" fill="#0a0a0a"/>
+    <!-- left lobe -->
+    <path d="M22,38 C18,34 12,36 10,42 C8,48 13,54 19,52 C24,50 25,44 22,38 Z" fill="#0d0d0d"/>
+    <!-- top splat -->
+    <path d="M44,12 C46,6 52,4 54,8 C56,12 52,16 48,15 C46,14 44,13 44,12 Z" fill="#111"/>
+    <!-- right drip -->
+    <path d="M66,34 C70,32 75,36 74,41 C73,45 68,46 66,43 C64,40 64,36 66,34 Z" fill="#0d0d0d"/>
+    <!-- bottom drip -->
+    <path d="M38,66 C37,72 40,78 44,77 C48,76 49,70 46,66 C44,63 39,63 38,66 Z" fill="#111"/>
+    <!-- tiny splatter dots -->
+    <circle cx="58" cy="14" r="2.5" fill="#0a0a0a"/>
+    <circle cx="64" cy="20" r="1.5" fill="#111"/>
+    <circle cx="15" cy="28" r="2" fill="#0a0a0a"/>
+    <circle cx="10" cy="34" r="1.2" fill="#111"/>
+    <circle cx="28" cy="70" r="1.8" fill="#0a0a0a"/>
+    <circle cx="52" cy="72" r="1.3" fill="#111"/>
+    <circle cx="70" cy="50" r="1.6" fill="#0a0a0a"/>
+    <circle cx="74" cy="44" r="1" fill="#111"/>
+  </svg>`;
+
   const MILESTONES = [
     { days: 30, label: "30🦑 LEGEND", color: "#ffd700" },
     { days: 14, label: "14🦑 LEGEND", color: "#c084fc" },
@@ -882,7 +904,7 @@
         } else if (g.completedToday) {
           inkBtn = `<span class="inked-label" style="font-size:12px">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="${which}">un-ink</button>`;
         } else {
-          inkBtn = `<button class="btn-ink" data-id="${m.id}" data-goal="${which}">Ink It! 🦑</button>`;
+          inkBtn = `<button class="btn-ink" data-id="${m.id}" data-goal="${which}">Ink It! ${INK_SPLOTCH}</button>`;
         }
         return `<div class="goal-row">
           <div class="goal-row-info">
@@ -961,7 +983,7 @@
         } else if (m.completedToday) {
           actionBtn = `<span class="inked-label">Inked ✓</span><button class="btn-unink" data-id="${m.id}" data-goal="primary">un-ink</button>`;
         } else {
-          actionBtn = `<button class="btn-ink" data-id="${m.id}" data-goal="primary">Ink It! 🦑</button>`;
+          actionBtn = `<button class="btn-ink" data-id="${m.id}" data-goal="primary">Ink It! ${INK_SPLOTCH}</button>`;
         }
         card.innerHTML = `
           ${rankHtml}
