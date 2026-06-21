@@ -911,8 +911,13 @@
       const missCount = shameList[0].missedThisWeek;
       const multi = shameList.length > 1;
       const names = shameList.map(s => esc(s.name)).join(", ");
+      const wStartDate = new Date(weekStart() + "T00:00:00");
+      const wEndDate = new Date(wStartDate); wEndDate.setDate(wStartDate.getDate() + 6);
+      const fmt = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const weekRange = `${fmt(wStartDate)} – ${fmt(wEndDate)}`;
       shameBanner.innerHTML = `
-        <div class="shame-title">💀 Squid${multi ? "s" : ""} of Shame — This Week 💀</div>
+        <div class="shame-title">💀 Squid${multi ? "s" : ""} of Shame 💀</div>
+        <div class="shame-title" style="letter-spacing:2px;font-size:11px;margin-top:2px;opacity:0.8">${weekRange}</div>
         <div class="shame-name">🪣 ${names} 🪣</div>
         <div class="shame-detail">Missed ${missCount} day${missCount === 1 ? "" : "s"} this week — get it together!</div>`;
     } else {
