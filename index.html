@@ -907,7 +907,11 @@
     container.innerHTML = "";
     const goalEffectiveDays = g => g.goalType === "weekly" ? (g.streak || 0) * (g.weeklyTarget || 1) : (g.streak || 0);
     const totalStreak = m => goalEffectiveDays(m) + (m.goal2 ? goalEffectiveDays(m.goal2) : 0);
-    const sorted = [...members].sort((a, b) => totalStreak(b) - totalStreak(a));
+    const sorted = [...members].sort((a, b) => {
+      const ds = totalStreak(b) - totalStreak(a);
+      if (ds !== 0) return ds;
+      return (a.missedThisWeek || 0) - (b.missedThisWeek || 0);
+    });
     sorted.forEach((m, rankIdx) => {
       const isShamed = shameList.some(s => s.id === m.id);
       const missed = m.missedThisWeek || 0;
