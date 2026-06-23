@@ -867,11 +867,9 @@
       return `
         <div class="week-cal-dual">
           <div class="week-cal-row">
-            <div class="week-cal-goal-label"><span>${icon1}</span> ${esc(label1 || "Goal 1")}</div>
             <div class="week-cal">${rowHtml(log1, false, type1 === "weekly", weeklyTarget1)}</div>
           </div>
           <div class="week-cal-row">
-            <div class="week-cal-goal-label"><span>${icon2}</span> ${esc(label2 || "Goal 2")}</div>
             <div class="week-cal">${rowHtml(log2, true, type2 === "weekly", weeklyTarget2)}</div>
           </div>
         </div>`;
