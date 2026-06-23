@@ -880,16 +880,11 @@
   // ── Rendering ────────────────────────────────
   function render() {
     const members = state.members;
-    const memberAnyDone = m => {
-      const g1done = m.goalType === "weekly" ? (m.weeklyCount || 0) >= (m.weeklyTarget || 1) : m.completedToday;
-      const g2done = !m.goal2 || (m.goal2.goalType === "weekly" ? (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1) : m.goal2.completedToday);
-      return g1done || g2done;
-    };
-    const memberAllDone = m => {
-      const g1done = m.goalType === "weekly" ? (m.weeklyCount || 0) >= (m.weeklyTarget || 1) : m.completedToday;
-      const g2done = !m.goal2 || (m.goal2.goalType === "weekly" ? (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1) : m.goal2.completedToday);
-      return g1done && g2done;
-    };
+    const goalDoneToday = g => g.goalType === "weekly"
+      ? (g.weekLog || []).includes(todayShort())
+      : g.completedToday;
+    const memberAnyDone = m => goalDoneToday(m) || (m.goal2 && goalDoneToday(m.goal2));
+    const memberAllDone = m => goalDoneToday(m) && (!m.goal2 || goalDoneToday(m.goal2));
     const done = members.filter(memberAnyDone).length;
     const fullyDone = members.filter(memberAllDone).length;
     const total = members.length;
@@ -953,6 +948,8 @@
           : g.completedToday;
       }
       const allDone = goalDone(m) && (!m.goal2 || goalDone(m.goal2));
+      const anyDoneToday = goalDoneToday(m) || (m.goal2 && goalDoneToday(m.goal2));
+      const cardIcon = allDone ? "✅" : isShamed ? "🪣" : anyDoneToday ? "⚡" : "🦑";
 
       function goalRowHtml(g, which) {
         const isW = g.goalType === "weekly";
@@ -1024,7 +1021,7 @@
         const primaryGoalObj = { ...m, text: m.goal };
         card.innerHTML = `
           ${rankHtml}
-          <div class="card-icon">${allDone ? "✅" : (isShamed ? "🪣" : "🦑")}</div>
+          <div class="card-icon">${cardIcon}</div>
           <div class="card-info" style="width:100%">
             <div class="card-name-row">
               <span class="card-name">${esc(m.name)}</span>
@@ -1065,7 +1062,7 @@
         }
         card.innerHTML = `
           ${rankHtml}
-          <div class="card-icon">${allDone?"✅":(isShamed?"🪣":"🦑")}</div>
+          <div class="card-icon">${cardIcon}</div>
           <div class="card-info">
             <div class="card-name-row">
               <span class="card-name">${esc(m.name)}</span>
