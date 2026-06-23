@@ -880,20 +880,30 @@
   // ── Rendering ────────────────────────────────
   function render() {
     const members = state.members;
-    const memberDone = m => {
+    const memberAnyDone = m => {
+      const g1done = m.goalType === "weekly" ? (m.weeklyCount || 0) >= (m.weeklyTarget || 1) : m.completedToday;
+      const g2done = !m.goal2 || (m.goal2.goalType === "weekly" ? (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1) : m.goal2.completedToday);
+      return g1done || g2done;
+    };
+    const memberAllDone = m => {
       const g1done = m.goalType === "weekly" ? (m.weeklyCount || 0) >= (m.weeklyTarget || 1) : m.completedToday;
       const g2done = !m.goal2 || (m.goal2.goalType === "weekly" ? (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1) : m.goal2.completedToday);
       return g1done && g2done;
     };
-    const done = members.filter(memberDone).length;
+    const done = members.filter(memberAnyDone).length;
+    const fullyDone = members.filter(memberAllDone).length;
     const total = members.length;
 
     const bar = document.getElementById("summary-bar");
     if (total > 0) {
       bar.style.display = "inline-block";
-      bar.textContent = done === total
-        ? `🦑 ALL SQUIDS INKED TODAY! (${done}/${total})`
-        : `🦑 ${done} of ${total} squids inked today`;
+      if (done === total && fullyDone === total) {
+        bar.textContent = `🦑 ALL SQUIDS FULLY INKED TODAY! (${done}/${total})`;
+      } else if (fullyDone > 0) {
+        bar.textContent = `🦑 ${done} of ${total} squids inked today · ${fullyDone} fully done ✅`;
+      } else {
+        bar.textContent = `🦑 ${done} of ${total} squids inked today`;
+      }
     } else {
       bar.style.display = "none";
     }
@@ -998,8 +1008,13 @@
         const glowAlpha = Math.min(0.15 + streak * 0.018, 0.7).toFixed(2);
         const glowSize = Math.min(18 + streak * 3, 60);
         const glowColor = streak >= 30 ? `255,215,0` : streak >= 14 ? `192,132,252` : streak >= 7 ? `52,211,153` : `125,211,252`;
-        if (streak > 0) card.style.boxShadow = `0 0 ${glowSize}px rgba(${glowColor},${glowAlpha})`;
-        if (streak > 0 && !allDone) card.style.borderColor = `rgba(${glowColor},${Math.min(0.2 + streak * 0.025, 0.8).toFixed(2)})`;
+        if (allDone) {
+          card.style.boxShadow = `0 0 30px rgba(52,211,153,0.55), 0 0 60px rgba(52,211,153,0.2)`;
+          card.style.borderColor = `rgba(52,211,153,0.7)`;
+        } else {
+          if (streak > 0) card.style.boxShadow = `0 0 ${glowSize}px rgba(${glowColor},${glowAlpha})`;
+          if (streak > 0) card.style.borderColor = `rgba(${glowColor},${Math.min(0.2 + streak * 0.025, 0.8).toFixed(2)})`;
+        }
       }
       const crownHtml = isFirst ? `<span class="rank-crown">👑</span>` : "";
       const rankHtml = `<div class="card-rank">${crownHtml}#${rank}</div>`;
