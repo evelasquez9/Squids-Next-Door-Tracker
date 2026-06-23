@@ -149,8 +149,8 @@
     box-shadow: 0 0 18px rgba(52,211,153,0.15);
   }
   .card.partial {
-    background: linear-gradient(135deg, rgba(6,95,70,0.2), rgba(4,120,87,0.1));
-    border: 1px solid rgba(52,211,153,0.25);
+    background: linear-gradient(135deg, rgba(120,80,0,0.35), rgba(161,110,0,0.18));
+    border: 1px solid rgba(251,191,36,0.4);
   }
   .card.pending {
     background: linear-gradient(135deg, rgba(14,40,80,0.7), rgba(10,28,60,0.7));
@@ -1014,8 +1014,8 @@
           card.style.boxShadow = `0 0 30px rgba(52,211,153,0.55), 0 0 60px rgba(52,211,153,0.2)`;
           card.style.borderColor = `rgba(52,211,153,0.7)`;
         } else if (anyDoneToday && m.goal2) {
-          card.style.boxShadow = `0 0 18px rgba(52,211,153,0.25)`;
-          card.style.borderColor = `rgba(52,211,153,0.35)`;
+          card.style.boxShadow = `0 0 18px rgba(251,191,36,0.25)`;
+          card.style.borderColor = `rgba(251,191,36,0.45)`;
         } else {
           if (streak > 0) card.style.boxShadow = `0 0 ${glowSize}px rgba(${glowColor},${glowAlpha})`;
           if (streak > 0) card.style.borderColor = `rgba(${glowColor},${Math.min(0.2 + streak * 0.025, 0.8).toFixed(2)})`;
