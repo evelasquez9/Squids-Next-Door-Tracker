@@ -980,9 +980,12 @@
       }
 
       const yDay = yesterdayShort();
+      const todayIdx = WEEK_DAYS.indexOf(todayShort());
+      const yDayIdx = WEEK_DAYS.indexOf(yDay);
+      const yesterdayInCurrentWeek = yDayIdx >= 0 && yDayIdx < todayIdx;
       const primaryWeeklyDone = m.goalType === "weekly" && (m.weeklyCount || 0) >= (m.weeklyTarget || 1);
       const goal2WeeklyDone = m.goal2 && m.goal2.goalType === "weekly" && (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1);
-      const showInkYesterday = WEEK_DAYS.includes(yDay) && (
+      const showInkYesterday = yesterdayInCurrentWeek && (
         (!primaryWeeklyDone && !(m.weekLog || []).includes(yDay)) ||
         (m.goal2 && !goal2WeeklyDone && !(m.goal2.weekLog || []).includes(yDay))
       );
@@ -1249,7 +1252,9 @@
     const m = state.members.find(x => x.id === id);
     if (!m) return;
     const yDay = yesterdayShort();
-    if (!WEEK_DAYS.includes(yDay)) return;
+    const yIdx = WEEK_DAYS.indexOf(yDay);
+    const tIdx = WEEK_DAYS.indexOf(todayShort());
+    if (yIdx < 0 || yIdx >= tIdx) return; // yesterday not in current week
     // Show button if yesterday is missing from primary OR goal2
     const primaryMissed = !(m.weekLog || []).includes(yDay);
     const goal2Missed = m.goal2 && !(m.goal2.weekLog || []).includes(yDay);
