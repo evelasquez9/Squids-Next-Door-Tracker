@@ -148,6 +148,10 @@
     border: 1px solid rgba(52,211,153,0.5);
     box-shadow: 0 0 18px rgba(52,211,153,0.15);
   }
+  .card.partial {
+    background: linear-gradient(135deg, rgba(6,95,70,0.2), rgba(4,120,87,0.1));
+    border: 1px solid rgba(52,211,153,0.25);
+  }
   .card.pending {
     background: linear-gradient(135deg, rgba(14,40,80,0.7), rgba(10,28,60,0.7));
     border: 1px solid rgba(125,211,252,0.15);
@@ -999,7 +1003,8 @@
         : "";
 
       const card = document.createElement("div");
-      card.className = `card ${allDone ? "done" : "pending"}${isShamed ? " card-shamed" : ""}`;
+      const cardState = allDone ? "done" : (anyDoneToday && m.goal2 ? "partial" : "pending");
+      card.className = `card ${cardState}${isShamed ? " card-shamed" : ""}`;
       const streak = totalStreak(m);
       if (!isShamed) {
         const glowAlpha = Math.min(0.15 + streak * 0.018, 0.7).toFixed(2);
