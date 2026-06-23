@@ -1532,6 +1532,7 @@
           streak: (existing && goal2Data.text === (existing.text || "")) ? (existing.streak || 0) : 0,
           completedToday: existing ? existing.completedToday : false,
           weeklyCount: (existing && nowW2 && wasW2) ? (existing.weeklyCount || 0) : 0,
+          weekLog: (existing && goal2Data.text === (existing.text || "")) ? (existing.weekLog || []) : [],
         };
       } else {
         delete t.goal2;
