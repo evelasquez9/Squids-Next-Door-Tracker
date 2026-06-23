@@ -949,7 +949,7 @@
       }
       const allDone = goalDone(m) && (!m.goal2 || goalDone(m.goal2));
       const anyDoneToday = goalDoneToday(m) || (m.goal2 && goalDoneToday(m.goal2));
-      const cardIcon = allDone ? "✅" : isShamed ? "🪣" : anyDoneToday ? "⚡" : "🦑";
+      const cardIcon = allDone ? "✅" : isShamed ? "🪣" : "🦑";
 
       function goalRowHtml(g, which) {
         const isW = g.goalType === "weekly";
@@ -1008,6 +1008,9 @@
         if (allDone) {
           card.style.boxShadow = `0 0 30px rgba(52,211,153,0.55), 0 0 60px rgba(52,211,153,0.2)`;
           card.style.borderColor = `rgba(52,211,153,0.7)`;
+        } else if (anyDoneToday && m.goal2) {
+          card.style.boxShadow = `0 0 18px rgba(52,211,153,0.25)`;
+          card.style.borderColor = `rgba(52,211,153,0.35)`;
         } else {
           if (streak > 0) card.style.boxShadow = `0 0 ${glowSize}px rgba(${glowColor},${glowAlpha})`;
           if (streak > 0) card.style.borderColor = `rgba(${glowColor},${Math.min(0.2 + streak * 0.025, 0.8).toFixed(2)})`;
