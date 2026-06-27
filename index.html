@@ -996,14 +996,15 @@
       const goal2WeeklyDone = m.goal2 && m.goal2.goalType === "weekly" && (m.goal2.weeklyCount || 0) >= (m.goal2.weeklyTarget || 1);
       const showYesterday1 = yesterdayInCurrentWeek && !primaryWeeklyDone && !(m.weekLog || []).includes(yDay);
       const showYesterday2 = yesterdayInCurrentWeek && m.goal2 && !goal2WeeklyDone && !(m.goal2.weekLog || []).includes(yDay);
+      const shortGoal = txt => { const w = (txt || "").trim().split(/\s+/).slice(0, 2).join(" "); return w.length > 16 ? w.slice(0, 16) + "…" : w; };
       const inkYesterdayBtn = (showYesterday1 || showYesterday2) && !m.goal2
         ? `<button class="btn-ink-yesterday" data-id="${m.id}" data-goal="primary" title="Forgot to log yesterday?">+yesterday</button>`
         : "";
       const inkYesterdayBtn1 = showYesterday1 && m.goal2
-        ? `<button class="btn-ink-yesterday" data-id="${m.id}" data-goal="primary" title="Log yesterday for goal 1">+yesterday</button>`
+        ? `<button class="btn-ink-yesterday" data-id="${m.id}" data-goal="primary" title="Log yesterday for: ${esc(m.goal)}">+yest: ${esc(shortGoal(m.goal))}</button>`
         : "";
       const inkYesterdayBtn2 = showYesterday2
-        ? `<button class="btn-ink-yesterday" data-id="${m.id}" data-goal="secondary" title="Log yesterday for goal 2">+yesterday</button>`
+        ? `<button class="btn-ink-yesterday" data-id="${m.id}" data-goal="secondary" title="Log yesterday for: ${esc(m.goal2.text)}">+yest: ${esc(shortGoal(m.goal2.text))}</button>`
         : "";
 
       const card = document.createElement("div");
