@@ -751,7 +751,7 @@
           const r2 = m.goal2 ? weeklyResetGoal(m.goal2) : null;
           return {
             ...m, ...r1.goal,
-            missedThisWeek: r1.missed + (r2 ? r2.missed : 0),
+            missedThisWeek: 0,
             weekLog: [],
             ...(r2 ? { goal2: { ...r2.goal, weekLog: [] } } : {}),
           };
