@@ -46,5 +46,3 @@ python3 -m http.server 8000
 You'll need your own Firebase project and Firestore database, with your config swapped into the `firebaseConfig` object in `index.html`.
 
 ---
-
-🤖 Built with [Claude Code](https://claude.com/claude-code)
