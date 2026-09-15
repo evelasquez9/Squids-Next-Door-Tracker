@@ -2,7 +2,7 @@
 
 A real-time group habit and goal tracker built for a small squad to keep each other accountable. Everyone can set a daily or weekly goal, "ink" it when they complete it, and watch the whole squad's progress update live.
 
-**Live app:** [Squids Tracker]([https://evelasquez9.github.io](https://evelasquez9.github.io/Squids-Next-Door-Tracker/))
+**Live app:** [evelasquez9.github.io/Squids-Next-Door-Tracker](https://evelasquez9.github.io/Squids-Next-Door-Tracker/)
 
 ## Features
 
